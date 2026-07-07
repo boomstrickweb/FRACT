@@ -44,6 +44,7 @@ interface PostData {
   };
   is_saved?: boolean;
   is_reposted?: boolean;
+  is_anniversary?: boolean;
   user_reaction?: 'respect' | 'reject' | 'observe' | null;
 }
 
@@ -160,6 +161,7 @@ const Feed = () => {
         voice_url: post.voice_url,
         is_explicit: post.is_explicit,
         is_anonymous: post.is_anonymous,
+        is_anniversary: (post as any).is_anniversary || false,
         view_count: post.view_count,
         created_at: post.created_at,
         updated_at: post.updated_at,
@@ -272,6 +274,7 @@ const Feed = () => {
           moderation_score,
           moderation_reason,
           is_quarantined,
+          is_anniversary,
           created_at,
           ai_flagged,
           author:profiles!posts_author_id_fkey (
