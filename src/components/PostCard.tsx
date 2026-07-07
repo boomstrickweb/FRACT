@@ -1,5 +1,5 @@
 import React, { useState, useRef, useEffect } from 'react';
-import { MoreHorizontal, Heart, X, Eye, Bookmark, Flag, Edit3, Trash2, Play, Pause, Volume2, MessageSquare, Repeat2, Clock, Lightbulb, HelpCircle, FlaskConical, User, Link2, AlertTriangle, Shield, Bot, Eye as EyeIcon, ShieldAlert, Send, Share2 } from 'lucide-react';
+import { MoreHorizontal, Heart, X, Eye, Bookmark, Flag, Edit3, Trash2, Play, Pause, Volume2, MessageSquare, Repeat2, Clock, Lightbulb, HelpCircle, FlaskConical, User, Link2, AlertTriangle, Shield, Bot, Eye as EyeIcon, ShieldAlert, Send, Share2, Sparkles, Cake } from 'lucide-react';
 import ManualReview from './ManualReview';
 import { supabase } from '../lib/supabase';
 import { useNavigate } from 'react-router-dom';
@@ -66,6 +66,7 @@ interface PostData {
   ai_detection_score?: number | null;
   is_saved?: boolean;
   is_reposted?: boolean;
+  is_anniversary?: boolean;
   user_reaction?: 'respect' | 'reject' | 'observe' | null;
   reaction_counts?: {
     respect_count: number;
@@ -110,6 +111,8 @@ const PostCard: React.FC<PostCardProps> = React.memo(({
   const [isPlaying, setIsPlaying] = useState(false);
   const [audioProgress, setAudioProgress] = useState(0);
   const [audioDuration, setAudioDuration] = useState(0);
+  const [showCelebration, setShowCelebration] = useState(false);
+  const [celebrationKey, setCelebrationKey] = useState(0);
   const [hasViewed, setHasViewed] = useState(false);
   const [showExplicitContent, setShowExplicitContent] = useState(false);
   const [showReportModal, setShowReportModal] = useState(false);
@@ -713,6 +716,91 @@ const PostCard: React.FC<PostCardProps> = React.memo(({
         <div className="mb-3 sm:mb-4 bg-red-500/10 border border-red-500/20 rounded-xl sm:rounded-2xl p-2 sm:p-3 flex items-center space-x-2">
           <EyeIcon className="w-5 h-5 text-red-400" />
           <span className="text-red-400 font-medium text-sm sm:text-base">Explicit Content</span>
+        </div>
+      )}
+
+      {/* Anniversary Celebration */}
+      {post.is_anniversary && (
+        <div className="mb-4 relative overflow-hidden bg-gradient-to-r from-purple-500/10 via-pink-500/10 to-purple-500/10 border border-purple-500/30 rounded-2xl p-4 sm:p-6 group/anniversary">
+          <div className="flex flex-col sm:flex-row items-center justify-between gap-4">
+            <div className="flex items-center space-x-4">
+              <div className="w-12 h-12 rounded-full bg-gradient-to-br from-purple-500 to-pink-500 flex items-center justify-center shadow-lg shadow-purple-500/30 group-hover/anniversary:scale-110 transition-transform duration-500">
+                <Cake className="w-6 h-6 text-white animate-pulse" />
+              </div>
+              <div>
+                <h4 className="text-slate-100 font-bold text-base sm:text-lg">FRACT 1-Year Anniversary</h4>
+                <p className="text-slate-400 text-xs sm:text-sm">This is a special anniversary post!</p>
+              </div>
+            </div>
+            <button
+              onClick={() => {
+                setShowCelebration(true);
+                setCelebrationKey(prev => prev + 1);
+                // Auto-hide after 5 seconds
+                setTimeout(() => setShowCelebration(false), 5000);
+              }}
+              className="px-6 py-2.5 rounded-full bg-gradient-to-r from-purple-600 to-pink-600 hover:from-purple-500 hover:to-pink-500 text-white font-bold text-sm sm:text-base shadow-lg shadow-purple-900/20 transition-all duration-300 transform hover:scale-105 active:scale-95 flex items-center space-x-2"
+            >
+              <Cake className="w-4 h-4" />
+              <span>let's celebrate</span>
+            </button>
+          </div>
+
+          {/* Celebration Animation Overlay */}
+          {showCelebration && (
+            <div key={celebrationKey} className="fixed inset-0 z-[100] flex items-center justify-center pointer-events-none">
+              <div className="relative">
+                {/* Cake Container */}
+                <div className="animate-bounce duration-1000">
+                  <div className="relative text-8xl sm:text-9xl">
+                    🎂
+                    {/* Floating Sparkles around the cake */}
+                    <div className="absolute -top-4 -right-4 animate-ping">✨</div>
+                    <div className="absolute -bottom-2 -left-4 animate-bounce delay-300">🎉</div>
+                    <div className="absolute top-1/2 -right-8 animate-pulse text-4xl">🧁</div>
+                  </div>
+                </div>
+                
+                {/* Background Glow */}
+                <div className="absolute inset-0 bg-purple-500/20 blur-3xl rounded-full scale-150 animate-pulse" />
+                
+                {/* Text Animation */}
+                <div className="absolute top-full mt-8 left-1/2 -translate-x-1/2 whitespace-nowrap">
+                  <h2 className="text-4xl sm:text-6xl font-black text-transparent bg-clip-text bg-gradient-to-r from-purple-400 via-pink-500 to-yellow-400 animate-pulse text-center">
+                    HAPPY 1 YEAR!
+                  </h2>
+                </div>
+              </div>
+              
+              {/* Confetti effect using CSS */}
+              <style dangerouslySetInnerHTML={{ __html: `
+                @keyframes confetti-fall {
+                  0% { transform: translateY(-10vh) rotate(0deg); opacity: 1; }
+                  100% { transform: translateY(110vh) rotate(720deg); opacity: 0; }
+                }
+                .confetti {
+                  position: absolute;
+                  width: 10px;
+                  height: 10px;
+                  background: #a855f7;
+                  top: -10px;
+                  animation: confetti-fall 4s linear forwards;
+                }
+              `}} />
+              {[...Array(50)].map((_, i) => (
+                <div
+                  key={i}
+                  className="confetti"
+                  style={{
+                    left: `${Math.random() * 100}%`,
+                    backgroundColor: ['#a855f7', '#ec4899', '#eab308', '#3b82f6', '#22c55e'][Math.floor(Math.random() * 5)],
+                    animationDelay: `${Math.random() * 3}s`,
+                    animationDuration: `${2 + Math.random() * 3}s`
+                  }}
+                />
+              ))}
+            </div>
+          )}
         </div>
       )}
 
