@@ -85,20 +85,54 @@ RETURNS TRIGGER
 LANGUAGE plpgsql
 SECURITY DEFINER
 AS $$
+DECLARE
+  _current_role text;
+  _auth_role text;
+  _current_user text;
+  _session_user text;
 BEGIN
-  -- Bypass for system roles
-  IF current_setting('role', true) IN ('postgres', 'supabase_admin') THEN
+  -- Capture all identity markers
+  _current_role := current_setting('role', true);
+  _current_user := current_user;
+  _session_user := session_user;
+  
+  -- Get auth role from JWT if available
+  BEGIN
+    _auth_role := auth.role();
+  EXCEPTION WHEN OTHERS THEN
+    _auth_role := NULL;
+  END;
+
+  -- 1. Check for system roles in session
+  IF _current_role IN ('postgres', 'supabase_admin', 'service_role', 'authenticator') THEN
+    RETURN NEW;
+  END IF;
+
+  -- 2. Check for system users
+  IF _current_user IN ('postgres', 'supabase_admin', 'service_role') OR 
+     _session_user IN ('postgres', 'supabase_admin', 'service_role') 
+  THEN
+    RETURN NEW;
+  END IF;
+
+  -- 3. Check for service_role in auth context (Supabase API/Dashboard)
+  IF _auth_role = 'service_role' THEN
     RETURN NEW;
   END IF;
   
-  -- Bypass for admin functions with special marker
+  -- 4. Bypass for admin functions with special marker
   IF current_setting('app.bypass_profile_protection', true) = 'true' THEN
     RETURN NEW;
   END IF;
   
-  -- Prevent modification of system-managed fields
+  -- Prevent modification of system-managed fields for regular users
   IF OLD.is_verified IS DISTINCT FROM NEW.is_verified THEN
-    RAISE EXCEPTION 'Cannot modify is_verified field' USING ERRCODE = '42501';
+    RAISE EXCEPTION 'Cannot modify is_verified field (Identities -> Role: %, AuthRole: %, User: %, SessUser: %)', 
+      _current_role, 
+      COALESCE(_auth_role, (CASE WHEN current_setting('request.jwt.claims', true) IS NOT NULL THEN (current_setting('request.jwt.claims', true)::jsonb->>'role') ELSE 'none' END)),
+      _current_user,
+      _session_user
+      USING ERRCODE = '42501';
   END IF;
   
   IF OLD.verification_type IS DISTINCT FROM NEW.verification_type THEN
