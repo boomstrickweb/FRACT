@@ -985,32 +985,6 @@ const CreatePost: React.FC<CreatePostProps> = ({ onBack, onPostCreated, onCreate
               </button>
             </div>
 
-            {/* Celebrate Anniversary */}
-            <div className="flex items-center justify-between p-3 sm:p-4 bg-gradient-to-r from-purple-500/10 to-pink-500/10 rounded-xl sm:rounded-2xl border border-purple-500/30">
-              <div className="flex items-center space-x-3">
-                <div className="w-8 h-8 sm:w-10 sm:h-10 rounded-full bg-gradient-to-br from-purple-500 to-pink-500 flex items-center justify-center flex-shrink-0 shadow-lg shadow-purple-500/20">
-                  <Cake className="w-4 h-4 sm:w-5 sm:h-5 text-white" />
-                </div>
-                <div className="min-w-0 flex-1">
-                  <div className="text-slate-200 font-medium text-sm sm:text-base flex items-center space-x-2">
-                    <span>Celebrate Anniversary</span>
-                    <span className="px-1.5 py-0.5 rounded-md bg-purple-500/20 text-purple-400 text-[10px] font-bold uppercase tracking-wider border border-purple-500/30">Special</span>
-                  </div>
-                  <div className="text-slate-400 text-xs sm:text-sm">Celebrate FRACT's 1-year with a surprise!</div>
-                </div>
-              </div>
-              <button
-                onClick={() => setIsAnniversary(!isAnniversary)}
-                className={`relative w-10 h-5 sm:w-12 sm:h-6 rounded-full transition-all duration-300 flex-shrink-0 ${
-                  isAnniversary ? 'bg-gradient-to-r from-purple-500 to-pink-500' : 'bg-slate-600'
-                }`}
-              >
-                <div className={`absolute top-0.5 w-4 h-4 sm:top-1 sm:w-4 sm:h-4 bg-white rounded-full transition-all duration-300 shadow-sm ${
-                  isAnniversary ? 'left-5 sm:left-7' : 'left-0.5 sm:left-1'
-                }`} />
-              </button>
-            </div>
-
             {/* Perspective Lock */}
             {postType !== 'poll' && (
               <div className="p-3 sm:p-4 bg-slate-800/30 rounded-xl sm:rounded-2xl border border-slate-700">
