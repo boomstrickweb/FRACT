@@ -1,6 +1,6 @@
 import { useState, useRef, useEffect } from 'react';
 import { ArrowLeft, Type, Quote, Mic, Eye, UserX, Send, Pause, Play, Square, Volume2, Lightbulb, HelpCircle, FlaskConical, User, MessageSquare } from 'lucide-react';
-import { supabase } from '../lib/supabase';
+import { supabase, getCDNUrl } from '../lib/supabase';
 import PostContent from './PostContent';
 
 interface ReflectTargetPost {
@@ -155,7 +155,7 @@ const CreateReflect: React.FC<CreateReflectProps> = ({ post, onBack, onReflectCr
       }
 
       const { data } = supabase.storage.from('voice-notes').getPublicUrl(filePath);
-      return data.publicUrl;
+      return getCDNUrl(data.publicUrl);
     } catch (err) {
       console.error('Error in uploadVoiceNote:', err);
       setError('Failed to upload voice note. Please try again.');
@@ -379,7 +379,7 @@ const CreateReflect: React.FC<CreateReflectProps> = ({ post, onBack, onReflectCr
           <div className="flex items-center space-x-3 mb-3">
             <div className="w-8 h-8 rounded-full bg-slate-700 overflow-hidden flex-shrink-0">
               {!post.is_anonymous && post.author?.profile_pic_url ? (
-                <img src={post.author.profile_pic_url} alt={getAuthorDisplay()} className="w-full h-full object-cover" />
+                <img src={getCDNUrl(post.author.profile_pic_url)} alt={getAuthorDisplay()} className="w-full h-full object-cover" />
               ) : (
                 <div className="w-full h-full bg-gradient-to-br from-slate-600 to-slate-700 flex items-center justify-center">
                   <span className="text-slate-300 font-bold text-xs">

@@ -1,6 +1,6 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { ArrowLeft, Type, Quote, Mic, Eye, Clock, UserX, Send, Pause, Play, Square, Volume2, Lightbulb, HelpCircle, FlaskConical, User, Link2, Plus, X, BookOpen, BarChart3, Sparkles, Cake } from 'lucide-react';
-import { supabase } from '../lib/supabase';
+import { supabase, getCDNUrl } from '../lib/supabase';
 import { checkPostRateLimit, checkDuplicatePost, recordPostAttempt, formatRetryMessage } from '../services/antiSpamService';
 import { requestAiDetection } from '../services/aiDetectionService';
 import { requestTextClassification } from '../services/textClassificationService';
@@ -247,7 +247,7 @@ const CreatePost: React.FC<CreatePostProps> = ({ onBack, onPostCreated, onCreate
         .from('voice-notes')
         .getPublicUrl(filePath);
 
-      return data.publicUrl;
+      return getCDNUrl(data.publicUrl);
     } catch (error) {
       console.error('Error in uploadVoiceNote:', error);
       setError('Failed to upload voice note. Please try again.');
@@ -692,7 +692,7 @@ const CreatePost: React.FC<CreatePostProps> = ({ onBack, onPostCreated, onCreate
                 <div className="w-8 h-8 sm:w-10 sm:h-10 rounded-full bg-slate-700 overflow-hidden flex-shrink-0">
                   {!replyToPost.is_anonymous && replyToPost.author?.profile_pic_url ? (
                     <img
-                      src={replyToPost.author.profile_pic_url}
+                      src={getCDNUrl(replyToPost.author.profile_pic_url)}
                       alt={replyToPost.author.name}
                       className="w-full h-full object-cover"
                     />

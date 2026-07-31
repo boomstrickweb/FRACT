@@ -1,7 +1,7 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { MoreHorizontal, Heart, X, Eye, Bookmark, Flag, Edit3, Trash2, Play, Pause, Volume2, MessageSquare, Repeat2, Clock, Lightbulb, HelpCircle, FlaskConical, User, Link2, AlertTriangle, Shield, Bot, Eye as EyeIcon, ShieldAlert, Send, Share2, Sparkles, Cake } from 'lucide-react';
 import ManualReview from './ManualReview';
-import { supabase } from '../lib/supabase';
+import { supabase, getCDNUrl } from '../lib/supabase';
 import { useNavigate } from 'react-router-dom';
 import VerificationBadge from './VerificationBadge';
 import ReportModal from './ReportModal';
@@ -551,8 +551,8 @@ const PostCard: React.FC<PostCardProps> = React.memo(({
             {!originalPost.is_anonymous && originalPost.author?.profile_pic_url ? (
               <img
                 src={originalPost.author.profile_pic_url.includes('supabase.co') && originalPost.author.profile_pic_url.includes('profile-pictures')
-                  ? `${originalPost.author.profile_pic_url}?width=64&height=64&resize=cover`
-                  : originalPost.author.profile_pic_url}
+                  ? `${getCDNUrl(originalPost.author.profile_pic_url)}?width=64&height=64&resize=cover`
+                  : getCDNUrl(originalPost.author.profile_pic_url)}
                 alt={originalPost.author.name}
                 className="w-full h-full object-cover"
                 loading="lazy"
@@ -659,7 +659,7 @@ const PostCard: React.FC<PostCardProps> = React.memo(({
 
           <audio
             ref={audioRef}
-            src={post.voice_url}
+            src={getCDNUrl(post.voice_url)}
             onTimeUpdate={handleAudioTimeUpdate}
             onLoadedMetadata={handleAudioLoadedMetadata}
             onEnded={() => setIsPlaying(false)}
@@ -879,8 +879,8 @@ const PostCard: React.FC<PostCardProps> = React.memo(({
             {!post.is_anonymous && post.author?.profile_pic_url ? (
               <img
                 src={post.author.profile_pic_url.includes('supabase.co') && post.author.profile_pic_url.includes('profile-pictures') 
-                  ? `${post.author.profile_pic_url}?width=96&height=96&resize=cover`
-                  : post.author.profile_pic_url}
+                  ? `${getCDNUrl(post.author.profile_pic_url)}?width=96&height=96&resize=cover`
+                  : getCDNUrl(post.author.profile_pic_url)}
                 alt={getDisplayName(post.author, post.author_id, post.is_anonymous)}
                 className="w-full h-full object-cover"
                 loading="lazy"

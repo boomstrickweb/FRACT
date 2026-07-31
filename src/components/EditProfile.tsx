@@ -1,6 +1,6 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { ArrowLeft, Camera, Save, User, Image, Heart, Sparkles } from 'lucide-react';
-import { supabase } from '../lib/supabase';
+import { supabase, getCDNUrl } from '../lib/supabase';
 
 interface EditProfileProps {
   onBack: () => void;
@@ -169,7 +169,7 @@ const EditProfile: React.FC<EditProfileProps> = ({ onBack, onProfileUpdated }) =
         .from(bucket)
         .getPublicUrl(filePath);
 
-      return data.publicUrl;
+      return getCDNUrl(data.publicUrl);
     } catch (error) {
       console.error('Error in uploadImage:', error);
       return null;
