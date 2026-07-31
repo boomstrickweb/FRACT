@@ -1,7 +1,7 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { ArrowLeft, Type, Quote, Mic, Eye, Clock, UserX, Send, Pause, Play, Square, Volume2, Lightbulb, HelpCircle, FlaskConical, User, Link2, Plus, X, BookOpen, BarChart3, Sparkles, Cake } from 'lucide-react';
 import { supabase, getCDNUrl, wrapMediaUrl } from '../lib/supabase';
-import { uploadToR2 } from '../lib/r2';
+import { uploadToR2 } from '../lib/r2.ts';
 import { checkPostRateLimit, checkDuplicatePost, recordPostAttempt, formatRetryMessage } from '../services/antiSpamService';
 import { requestAiDetection } from '../services/aiDetectionService';
 import { requestTextClassification } from '../services/textClassificationService';

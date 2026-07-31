@@ -1,7 +1,7 @@
 import { useState, useRef, useEffect } from 'react';
 import { ArrowLeft, Type, Quote, Mic, Eye, UserX, Send, Pause, Play, Square, Volume2, Lightbulb, HelpCircle, FlaskConical, User, MessageSquare } from 'lucide-react';
 import { supabase, getCDNUrl, wrapMediaUrl } from '../lib/supabase';
-import { uploadToR2 } from '../lib/r2';
+import { uploadToR2 } from '../lib/r2.ts';
 import PostContent from './PostContent';
 
 interface ReflectTargetPost {

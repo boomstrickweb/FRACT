@@ -1,7 +1,7 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { ArrowLeft, Camera, Save, User, Image, Heart, Sparkles } from 'lucide-react';
 import { supabase, getCDNUrl } from '../lib/supabase';
-import { uploadToR2 } from '../lib/r2';
+import { uploadToR2 } from '../lib/r2.ts';
 
 interface EditProfileProps {
   onBack: () => void;
