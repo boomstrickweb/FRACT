@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { ArrowLeft, Clock, User } from 'lucide-react';
-import { supabase } from '../lib/supabase';
+import { supabase, wrapMediaUrl } from '../lib/supabase';
 
 interface EditHistoryEntry {
   id: string;
@@ -153,7 +153,7 @@ const EditHistory: React.FC<EditHistoryProps> = ({ postId, onBack }) => {
                 <div className="w-10 h-10 rounded-full bg-slate-700 overflow-hidden">
                   {!currentPost.is_anonymous && currentPost.author?.profile_pic_url ? (
                     <img
-                      src={currentPost.author.profile_pic_url}
+                      src={wrapMediaUrl(currentPost.author.profile_pic_url)}
                       alt={getDisplayName(currentPost.author)}
                       className="w-full h-full object-cover"
                     />

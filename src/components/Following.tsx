@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { ArrowLeft, Users, UserMinus } from 'lucide-react';
-import { supabase } from '../lib/supabase';
+import { supabase, wrapMediaUrl } from '../lib/supabase';
 import VerificationBadge from './VerificationBadge';
 
 interface FollowingUser {
@@ -248,7 +248,7 @@ const Following: React.FC<FollowingProps> = ({ onBack, userId, onProfileClick, s
                   >
                     {user.profile_pic_url ? (
                       <img
-                        src={user.profile_pic_url}
+                        src={wrapMediaUrl(user.profile_pic_url)}
                         alt={user.name}
                         className="w-full h-full object-cover"
                       />

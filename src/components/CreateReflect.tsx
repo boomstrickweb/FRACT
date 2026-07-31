@@ -1,6 +1,7 @@
 import { useState, useRef, useEffect } from 'react';
 import { ArrowLeft, Type, Quote, Mic, Eye, UserX, Send, Pause, Play, Square, Volume2, Lightbulb, HelpCircle, FlaskConical, User, MessageSquare } from 'lucide-react';
-import { supabase, getCDNUrl } from '../lib/supabase';
+import { supabase, getCDNUrl, wrapMediaUrl } from '../lib/supabase';
+import { uploadToR2 } from '../lib/r2';
 import PostContent from './PostContent';
 
 interface ReflectTargetPost {
@@ -144,18 +145,9 @@ const CreateReflect: React.FC<CreateReflectProps> = ({ post, onBack, onReflectCr
       const fileName = `reflect-${userId}-${Date.now()}.webm`;
       const filePath = `${userId}/${fileName}`;
 
-      const { error: uploadError } = await supabase.storage
-        .from('voice-notes')
-        .upload(filePath, blob);
-
-      if (uploadError) {
-        console.error('Error uploading voice note:', uploadError);
-        setError(`Failed to upload voice note: ${uploadError.message}`);
-        return null;
-      }
-
-      const { data } = supabase.storage.from('voice-notes').getPublicUrl(filePath);
-      return getCDNUrl(data.publicUrl);
+      // Upload to Cloudflare R2 instead of Supabase
+      const publicUrl = await uploadToR2('voice-notes', filePath, blob);
+      return publicUrl;
     } catch (err) {
       console.error('Error in uploadVoiceNote:', err);
       setError('Failed to upload voice note. Please try again.');
@@ -379,7 +371,7 @@ const CreateReflect: React.FC<CreateReflectProps> = ({ post, onBack, onReflectCr
           <div className="flex items-center space-x-3 mb-3">
             <div className="w-8 h-8 rounded-full bg-slate-700 overflow-hidden flex-shrink-0">
               {!post.is_anonymous && post.author?.profile_pic_url ? (
-                <img src={getCDNUrl(post.author.profile_pic_url)} alt={getAuthorDisplay()} className="w-full h-full object-cover" />
+                <img src={wrapMediaUrl(post.author.profile_pic_url)} alt={getAuthorDisplay()} className="w-full h-full object-cover" />
               ) : (
                 <div className="w-full h-full bg-gradient-to-br from-slate-600 to-slate-700 flex items-center justify-center">
                   <span className="text-slate-300 font-bold text-xs">

@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { ArrowLeft, Bell, BellOff, User, Heart, UserPlus, Settings } from 'lucide-react';
-import { supabase } from '../lib/supabase';
+import { supabase, wrapMediaUrl } from '../lib/supabase';
 
 interface Notification {
   id: string;
@@ -288,7 +288,7 @@ const Notifications: React.FC<NotificationsProps> = ({ onBack }) => {
                     <div className="w-10 h-10 rounded-full bg-slate-700 overflow-hidden flex-shrink-0">
                       {notification.related_user?.profile_pic_url ? (
                         <img
-                          src={notification.related_user.profile_pic_url}
+                          src={wrapMediaUrl(notification.related_user.profile_pic_url)}
                           alt={notification.related_user.name}
                           className="w-full h-full object-cover"
                         />

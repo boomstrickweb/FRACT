@@ -1,6 +1,7 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { ArrowLeft, Type, Quote, Mic, Eye, Clock, UserX, Send, Pause, Play, Square, Volume2, Lightbulb, HelpCircle, FlaskConical, User, Link2, Plus, X, BookOpen, BarChart3, Sparkles, Cake } from 'lucide-react';
-import { supabase, getCDNUrl } from '../lib/supabase';
+import { supabase, getCDNUrl, wrapMediaUrl } from '../lib/supabase';
+import { uploadToR2 } from '../lib/r2';
 import { checkPostRateLimit, checkDuplicatePost, recordPostAttempt, formatRetryMessage } from '../services/antiSpamService';
 import { requestAiDetection } from '../services/aiDetectionService';
 import { requestTextClassification } from '../services/textClassificationService';
@@ -233,21 +234,9 @@ const CreatePost: React.FC<CreatePostProps> = ({ onBack, onPostCreated, onCreate
       const fileName = `${userId}-${Date.now()}.webm`;
       const filePath = `${userId}/${fileName}`;
 
-      const { error: uploadError } = await supabase.storage
-        .from('voice-notes')
-        .upload(filePath, blob);
-
-      if (uploadError) {
-        console.error('Error uploading voice note:', uploadError);
-        setError(`Failed to upload voice note: ${uploadError.message}`);
-        return null;
-      }
-
-      const { data } = supabase.storage
-        .from('voice-notes')
-        .getPublicUrl(filePath);
-
-      return getCDNUrl(data.publicUrl);
+      // Upload to Cloudflare R2 instead of Supabase
+      const publicUrl = await uploadToR2('voice-notes', filePath, blob);
+      return publicUrl;
     } catch (error) {
       console.error('Error in uploadVoiceNote:', error);
       setError('Failed to upload voice note. Please try again.');
@@ -692,7 +681,7 @@ const CreatePost: React.FC<CreatePostProps> = ({ onBack, onPostCreated, onCreate
                 <div className="w-8 h-8 sm:w-10 sm:h-10 rounded-full bg-slate-700 overflow-hidden flex-shrink-0">
                   {!replyToPost.is_anonymous && replyToPost.author?.profile_pic_url ? (
                     <img
-                      src={getCDNUrl(replyToPost.author.profile_pic_url)}
+                      src={wrapMediaUrl(replyToPost.author.profile_pic_url)}
                       alt={replyToPost.author.name}
                       className="w-full h-full object-cover"
                     />

@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { ArrowLeft, Clock, Quote, Volume2, Play, Pause, User } from 'lucide-react';
-import { supabase } from '../lib/supabase';
+import { supabase, wrapMediaUrl } from '../lib/supabase';
 
 interface HistoryEntry {
   id: string;
@@ -188,7 +188,7 @@ const ReflectionEditHistory: React.FC<ReflectionEditHistoryProps> = ({ reflectio
               <div className="flex items-center space-x-3 mb-4">
                 <div className="w-9 h-9 rounded-full bg-slate-700 overflow-hidden flex-shrink-0">
                   {!current.is_anonymous && current.author?.profile_pic_url ? (
-                    <img src={current.author.profile_pic_url} alt={getDisplayName()} className="w-full h-full object-cover" />
+                    <img src={wrapMediaUrl(current.author.profile_pic_url)} alt={getDisplayName()} className="w-full h-full object-cover" />
                   ) : (
                     <div className="w-full h-full bg-gradient-to-br from-slate-600 to-slate-700 flex items-center justify-center">
                       <User className="w-4 h-4 text-slate-300" />
@@ -283,7 +283,7 @@ const VoicePlayer: React.FC<VoicePlayerProps> = ({ url }) => {
     <div className="bg-slate-700/40 rounded-xl p-3 sm:p-4">
       <audio
         ref={audioRef}
-        src={url}
+        src={wrapMediaUrl(url)}
         onTimeUpdate={() => setProgress(audioRef.current?.currentTime || 0)}
         onLoadedMetadata={() => setDuration(audioRef.current?.duration || 0)}
         onEnded={() => { setIsPlaying(false); setProgress(0); }}

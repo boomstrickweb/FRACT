@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { ArrowLeft, User, Calendar, Settings as SettingsIcon, CreditCard as Edit3, Users, UserPlus, UserMinus, MoreHorizontal, Flag, VolumeX, Ban, Plus, Heart, X, Eye, Newspaper, ShieldAlert, TrendingUp, FileEdit, Link2, AlertTriangle, Scale, Bookmark, BookOpen, MessageSquare } from 'lucide-react';
-import { supabase, getCDNUrl } from '../lib/supabase';
+import { supabase, getCDNUrl, wrapMediaUrl } from '../lib/supabase';
 import PostCard from './PostCard';
 import PostSeriesCard from './PostSeriesCard';
 import EditProfile from './EditProfile';
@@ -1497,9 +1497,7 @@ const Profile: React.FC<ProfileProps> = ({ userId: propsUserId, onBack, onNaviga
         <div className="relative h-48 sm:h-64 bg-gradient-to-r from-slate-700 via-slate-600 to-slate-700 rounded-b-3xl overflow-hidden">
           {profile.cover_pic_url ? (
             <img
-              src={profile.cover_pic_url.includes('supabase.co') && profile.cover_pic_url.includes('cover-pictures') 
-                ? `${getCDNUrl(profile.cover_pic_url)}?width=1200&height=400&resize=cover`
-                : getCDNUrl(profile.cover_pic_url)}
+              src={wrapMediaUrl(profile.cover_pic_url)}
               alt="Cover"
               className="w-full h-full object-cover"
             />
@@ -1516,9 +1514,7 @@ const Profile: React.FC<ProfileProps> = ({ userId: propsUserId, onBack, onNaviga
               <div className="w-24 h-24 sm:w-32 sm:h-32 rounded-full bg-slate-800 border-4 border-slate-900 overflow-hidden">
                 {profile.profile_pic_url ? (
                   <img
-                    src={profile.profile_pic_url.includes('supabase.co') && profile.profile_pic_url.includes('profile-pictures')
-                      ? `${getCDNUrl(profile.profile_pic_url)}?width=256&height=256&resize=cover`
-                      : getCDNUrl(profile.profile_pic_url)}
+                    src={wrapMediaUrl(profile.profile_pic_url)}
                     alt={getDisplayName()}
                     className="w-full h-full object-cover"
                   />
@@ -1927,7 +1923,7 @@ const Profile: React.FC<ProfileProps> = ({ userId: propsUserId, onBack, onNaviga
                         <div className="relative">
                           {follow.following.profile_pic_url ? (
                             <img
-                              src={getCDNUrl(follow.following.profile_pic_url)}
+                              src={wrapMediaUrl(follow.following.profile_pic_url)}
                               alt={follow.following.name}
                               className="w-12 h-12 rounded-full object-cover"
                             />

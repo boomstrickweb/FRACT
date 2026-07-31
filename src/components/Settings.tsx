@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { ArrowLeft, Shield, Users, EyeOff, Settings as SettingsIcon, Smartphone, Monitor, Tablet, Globe, Clock, X, LogOut, Flag, HelpCircle, MessageSquare, FileText, Lock, BookOpen, Info, TrendingUp, Database, UserX, Award, CheckCircle, AlertCircle, Ban, VolumeX, ShieldAlert, Layers, Bot, Accessibility, Copyright } from 'lucide-react';
 import { deleteSession, cleanupOldSessions } from '../services/sessionService';
-import { supabase } from '../lib/supabase';
+import { supabase, wrapMediaUrl } from '../lib/supabase';
 import { sanitizeExportData, logSecurityEvent, checkRateLimit } from '../services/securityService';
 import Feedback from './Feedback';
 import TOS from './TOS';
@@ -1377,7 +1377,7 @@ const Settings: React.FC<SettingsProps> = ({ onBack, onProfileUpdated, onLogout 
                           <div className="w-10 h-10 rounded-full bg-slate-700 overflow-hidden">
                             {account.blocked_user?.profile_pic_url ? (
                               <img
-                                src={account.blocked_user.profile_pic_url}
+                                src={wrapMediaUrl(account.blocked_user.profile_pic_url)}
                                 alt={account.blocked_user.name || 'User'}
                                 className="w-full h-full object-cover"
                               />
@@ -1431,7 +1431,7 @@ const Settings: React.FC<SettingsProps> = ({ onBack, onProfileUpdated, onLogout 
                           <div className="w-10 h-10 rounded-full bg-slate-700 overflow-hidden">
                             {account.muted_user?.profile_pic_url ? (
                               <img
-                                src={account.muted_user.profile_pic_url}
+                                src={wrapMediaUrl(account.muted_user.profile_pic_url)}
                                 alt={account.muted_user.name || 'User'}
                                 className="w-full h-full object-cover"
                               />
@@ -1531,7 +1531,7 @@ const Settings: React.FC<SettingsProps> = ({ onBack, onProfileUpdated, onLogout 
                               <div className="w-11 h-11 rounded-full bg-slate-700 overflow-hidden flex-shrink-0">
                                 {report.reported_user?.profile_pic_url ? (
                                   <img
-                                    src={report.reported_user.profile_pic_url}
+                                    src={wrapMediaUrl(report.reported_user.profile_pic_url)}
                                     alt={report.reported_user.name || 'User'}
                                     className="w-full h-full object-cover"
                                   />

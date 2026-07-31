@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
-import { ArrowLeft, MessageSquare, Volume2, Send, Eye } from 'lucide-react';
-import { supabase } from '../lib/supabase';
+import { ArrowLeft, MessageSquare, Volume2, Send, Eye, Play, Pause } from 'lucide-react';
+import { useRef } from 'react';
+import { supabase, wrapMediaUrl } from '../lib/supabase';
 import ReflectionCard, { type ReflectionData } from './ReflectionCard';
 import PostContent from './PostContent';
 import CreateReflect from './CreateReflect';
@@ -156,12 +157,9 @@ const ReflectionsView: React.FC<ReflectionsViewProps> = ({
         </div>
       );
     }
-    if (post.post_type === 'voice') {
+    if (post.post_type === 'voice' && post.voice_url) {
       return (
-        <div className="flex items-center space-x-2 text-slate-400">
-          <Volume2 className="w-4 h-4" />
-          <span className="text-sm">Voice Note</span>
-        </div>
+        <VoicePlayer url={post.voice_url} />
       );
     }
     return null;
@@ -243,7 +241,7 @@ const ReflectionsView: React.FC<ReflectionsViewProps> = ({
           <div className="flex items-center space-x-3 mb-3">
             <div className="w-8 h-8 rounded-full bg-slate-700 overflow-hidden flex-shrink-0">
               {!post.is_anonymous && post.author?.profile_pic_url ? (
-                <img src={post.author.profile_pic_url} alt={getAuthorDisplay()} className="w-full h-full object-cover" />
+                <img src={wrapMediaUrl(post.author.profile_pic_url)} alt={getAuthorDisplay()} className="w-full h-full object-cover" />
               ) : (
                 <div className="w-full h-full bg-gradient-to-br from-slate-600 to-slate-700 flex items-center justify-center">
                   <span className="text-slate-300 font-bold text-xs">
@@ -501,6 +499,58 @@ const EditReflectionInline: React.FC<EditReflectionInlineProps> = ({ reflection,
           >
             <div className={`absolute top-0.5 w-4 h-4 bg-white rounded-full transition-all duration-300 ${isExplicit ? 'left-5' : 'left-0.5'}`} />
           </button>
+        </div>
+      </div>
+    </div>
+  );
+};
+
+const VoicePlayer: React.FC<{ url: string }> = ({ url }) => {
+  const [isPlaying, setIsPlaying] = useState(false);
+  const [progress, setProgress] = useState(0);
+  const [duration, setDuration] = useState(0);
+  const audioRef = useRef<HTMLAudioElement | null>(null);
+
+  const toggle = () => {
+    if (!audioRef.current) return;
+    if (isPlaying) audioRef.current.pause();
+    else audioRef.current.play();
+    setIsPlaying(!isPlaying);
+  };
+
+  const fmt = (s: number) => `${Math.floor(s / 60)}:${Math.floor(s % 60).toString().padStart(2, '0')}`;
+
+  return (
+    <div className="bg-slate-700/40 rounded-xl p-3">
+      <audio
+        ref={audioRef}
+        src={wrapMediaUrl(url)}
+        onTimeUpdate={() => setProgress(audioRef.current?.currentTime || 0)}
+        onLoadedMetadata={() => setDuration(audioRef.current?.duration || 0)}
+        onEnded={() => { setIsPlaying(false); setProgress(0); }}
+        className="hidden"
+      />
+      <div className="flex items-center space-x-3">
+        <button
+          onClick={toggle}
+          className="w-8 h-8 bg-cyan-600 hover:bg-cyan-500 text-white rounded-full flex items-center justify-center flex-shrink-0 transition-all"
+        >
+          {isPlaying ? <Pause className="w-4 h-4" /> : <Play className="w-4 h-4 ml-0.5" />}
+        </button>
+        <div className="flex-1">
+          <div className="flex items-center justify-between mb-1">
+            <div className="flex items-center space-x-1 text-cyan-400">
+              <Volume2 className="w-3 h-3" />
+              <span className="text-[10px] font-medium uppercase tracking-wider">Voice Note</span>
+            </div>
+            <span className="text-slate-400 text-[10px] tabular-nums">{fmt(progress)} / {fmt(duration)}</span>
+          </div>
+          <div className="h-1 bg-slate-600 rounded-full overflow-hidden">
+            <div
+              className="h-full bg-gradient-to-r from-cyan-500 to-teal-500 rounded-full transition-all"
+              style={{ width: duration > 0 ? `${(progress / duration) * 100}%` : '0%' }}
+            />
+          </div>
         </div>
       </div>
     </div>

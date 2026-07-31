@@ -1,7 +1,7 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { BookOpen, ChevronLeft, ChevronRight, Eye, MoreHorizontal, Trash2, Flag, Bot } from 'lucide-react';
-import { supabase } from '../lib/supabase';
+import { supabase, wrapMediaUrl } from '../lib/supabase';
 import VerificationBadge from './VerificationBadge';
 import ReportModal from './ReportModal';
 
@@ -155,7 +155,7 @@ const PostSeriesCard: React.FC<PostSeriesCardProps> = ({
             >
               {!series.is_anonymous && series.author?.profile_pic_url ? (
                 <img
-                  src={series.author.profile_pic_url}
+                  src={wrapMediaUrl(series.author.profile_pic_url)}
                   alt={getDisplayName()}
                   className="w-full h-full object-cover"
                 />

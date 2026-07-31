@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Search as SearchIcon, User, ArrowLeft, Calendar, Heart, Sparkles, Star } from 'lucide-react';
-import { supabase } from '../lib/supabase';
+import { supabase, wrapMediaUrl } from '../lib/supabase';
 import PostCard from './PostCard';
 import Profile from './Profile';
 import VerificationBadge from './VerificationBadge';
@@ -751,7 +751,7 @@ const Search: React.FC<SearchProps> = ({ onBack, onProfileClick, onJoinClick }) 
                               <div className="w-16 h-16 rounded-full bg-slate-700 overflow-hidden flex-shrink-0">
                                 {match.profile_pic_url ? (
                                   <img
-                                    src={match.profile_pic_url}
+                                    src={wrapMediaUrl(match.profile_pic_url)}
                                     alt={match.name}
                                     className="w-full h-full object-cover"
                                   />
@@ -863,7 +863,7 @@ const Search: React.FC<SearchProps> = ({ onBack, onProfileClick, onJoinClick }) 
                             <div className="w-16 h-16 rounded-full bg-slate-700 overflow-hidden flex-shrink-0">
                               {profile.profile_pic_url ? (
                                 <img
-                                  src={profile.profile_pic_url}
+                                  src={wrapMediaUrl(profile.profile_pic_url)}
                                   alt={profile.name}
                                   className="w-full h-full object-cover"
                                 />

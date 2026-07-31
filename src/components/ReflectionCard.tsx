@@ -4,7 +4,7 @@ import {
   Lightbulb, HelpCircle, FlaskConical, User, Volume2, Play,
   Pause, Quote, MoreVertical, Clock, Flag, Heart, X, Eye as EyeIcon, Trash2,
 } from 'lucide-react';
-import { supabase, getCDNUrl } from '../lib/supabase';
+import { supabase, getCDNUrl, wrapMediaUrl } from '../lib/supabase';
 import VerificationBadge from './VerificationBadge';
 import PostContent from './PostContent';
 import ReportModal from './ReportModal';
@@ -333,7 +333,7 @@ const ReflectionCard: React.FC<ReflectionCardProps> = ({
         <div className="bg-slate-700/40 rounded-xl p-3 sm:p-4">
           <audio
             ref={audioRef}
-            src={getCDNUrl(reflection.voice_url)}
+            src={wrapMediaUrl(reflection.voice_url)}
             onTimeUpdate={() => setAudioProgress(audioRef.current?.currentTime || 0)}
             onLoadedMetadata={() => setAudioDuration(audioRef.current?.duration || 0)}
             onEnded={() => { setIsPlaying(false); setAudioProgress(0); }}
@@ -437,7 +437,7 @@ const ReflectionCard: React.FC<ReflectionCardProps> = ({
               <div className="w-9 h-9 sm:w-10 sm:h-10 rounded-full bg-slate-700 overflow-hidden flex-shrink-0 group-hover:ring-2 group-hover:ring-slate-500 transition-all duration-300">
                 {!reflection.is_anonymous && reflection.author?.profile_pic_url ? (
                   <img
-                    src={getCDNUrl(reflection.author.profile_pic_url)}
+                    src={wrapMediaUrl(reflection.author.profile_pic_url)}
                     alt={getDisplayName()}
                     className="w-full h-full object-cover"
                   />

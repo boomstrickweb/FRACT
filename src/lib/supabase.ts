@@ -32,34 +32,62 @@ export const supabase = createClient(
 export const getCDNUrl = (url: string | null | undefined): string => {
   if (!url) return '';
   
-  // If it's already a CDN URL, return it
-  if (url.includes('cdn.fract.online')) return url;
+  // Normalize URL to string if it's not
+  let urlStr = String(url);
+
+  // If it's already a CDN URL
+  if (urlStr.includes('cdn.fract.online')) {
+    // Ensure it has https protocol
+    if (!urlStr.startsWith('http')) {
+      urlStr = `https://${urlStr.replace(/^\/+/, '')}`;
+    }
+    return urlStr;
+  }
   
-  if (url.includes('/storage/v1')) {
+  // Handle Supabase storage URLs
+  if (urlStr.includes('/storage/v1')) {
     try {
-      // Use the project-specific host or fallback to any supabase.co host
-      const hostMatch = url.match(/([a-z0-9]+)\.supabase\.co/);
-      if (hostMatch) {
-        return url.replace(hostMatch[0], 'cdn.fract.online');
+      const urlObj = new URL(urlStr);
+      const pathParts = urlObj.pathname.split('/');
+      // Supabase storage path: /storage/v1/object/public/bucket/path...
+      const publicIndex = pathParts.indexOf('public');
+      if (publicIndex !== -1 && pathParts.length > publicIndex + 1) {
+        const bucket = pathParts[publicIndex + 1];
+        const rest = pathParts.slice(publicIndex + 2).join('/');
+        return `https://cdn.fract.online/${bucket}/${rest}`;
       }
-      
-      const urlObj = new URL(url);
-      // Replace the host with cdn.fract.online
-      return url.replace(urlObj.host, 'cdn.fract.online');
+
+      // Fallback: just replace the host if it's a known Supabase host
+      if (urlStr.includes('.supabase.co')) {
+        const host = urlObj.host;
+        return urlStr.replace(host, 'cdn.fract.online');
+      }
     } catch (e) {
       // Fallback if URL parsing fails
-      return url.replace('grdwhncighkgeqeblzjb.supabase.co', 'cdn.fract.online');
+      return urlStr.replace(/.*supabase\.co\/storage\/v1\/object\/public\//, 'https://cdn.fract.online/');
     }
   }
-  return url;
+
+  // Handle direct Supabase URLs that might not have /storage/v1 but are in the database
+  if (urlStr.includes('.supabase.co')) {
+    return urlStr.replace(/[a-z0-9]+\.supabase\.co\/storage\/v1\/object\/public\//, 'https://cdn.fract.online/');
+  }
+
+  return urlStr;
 };
 
 /**
- * Hook or helper to wrap common Supabase URL usage.
- * Can be used in components to ensure all media URLs go through the CDN.
+ * Hook or helper to wrap common storage URL usage.
+ * Supports both Supabase and R2 URLs.
  */
 export const wrapMediaUrl = (url: string | null | undefined): string => {
-  return getCDNUrl(url);
+  if (!url) return '';
+  const cdnUrl = getCDNUrl(url);
+  
+  // If getCDNUrl didn't do anything but it's a relative path, we might need to prefix it
+  // (though in this project most paths seem to be full URLs or at least contain storage markers)
+  
+  return cdnUrl;
 };
 
 export type Database = {

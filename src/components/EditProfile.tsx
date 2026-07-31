@@ -1,6 +1,7 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { ArrowLeft, Camera, Save, User, Image, Heart, Sparkles } from 'lucide-react';
 import { supabase, getCDNUrl } from '../lib/supabase';
+import { uploadToR2 } from '../lib/r2';
 
 interface EditProfileProps {
   onBack: () => void;
@@ -154,22 +155,11 @@ const EditProfile: React.FC<EditProfileProps> = ({ onBack, onProfileUpdated }) =
     try {
       const fileExt = file.name.split('.').pop();
       const fileName = `${userId}-${Date.now()}.${fileExt}`;
-      const filePath = `${fileName}`;
+      const filePath = fileName;
 
-      const { error: uploadError } = await supabase.storage
-        .from(bucket)
-        .upload(filePath, file);
-
-      if (uploadError) {
-        console.error('Error uploading file:', uploadError);
-        return null;
-      }
-
-      const { data } = supabase.storage
-        .from(bucket)
-        .getPublicUrl(filePath);
-
-      return getCDNUrl(data.publicUrl);
+      // Upload to Cloudflare R2
+      const publicUrl = await uploadToR2(bucket, filePath, file);
+      return publicUrl;
     } catch (error) {
       console.error('Error in uploadImage:', error);
       return null;
