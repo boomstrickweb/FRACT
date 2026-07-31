@@ -319,7 +319,7 @@ const EditProfile: React.FC<EditProfileProps> = ({ onBack, onProfileUpdated }) =
               <div className="h-48 bg-gradient-to-r from-slate-700 via-slate-600 to-slate-700 rounded-3xl overflow-hidden relative">
                 {coverPicPreview ? (
                   <img
-                    src={coverPicPreview}
+                    src={wrapMediaUrl(coverPicPreview)}
                     alt="Cover"
                     className="w-full h-full object-cover"
                   />

@@ -1618,7 +1618,7 @@ const Settings: React.FC<SettingsProps> = ({ onBack, onProfileUpdated, onLogout 
                                     </div>
                                   ) : report.reported_user?.profile_pic_url ? (
                                     <img
-                                      src={report.reported_user.profile_pic_url}
+                                      src={wrapMediaUrl(report.reported_user.profile_pic_url)}
                                       alt={report.reported_user.name || 'User'}
                                       className="w-full h-full object-cover"
                                     />

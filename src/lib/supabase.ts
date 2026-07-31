@@ -4,9 +4,9 @@ const supabaseUrl = import.meta.env.VITE_SUPABASE_URL || ''
 const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY || ''
 
 // For storage operations, we want to use the CDN if available
-const storageUrl = supabaseUrl.includes('supabase.co') 
-  ? supabaseUrl.replace(new URL(supabaseUrl).host, 'cdn.fract.online')
-  : supabaseUrl;
+// NOTE: We don't replace the host in the client config anymore to avoid double-transformation
+// and because we handle transformation explicitly with getCDNUrl/wrapMediaUrl.
+const storageUrl = supabaseUrl;
 
 if (!supabaseUrl || !supabaseAnonKey) {
   console.error('Missing Supabase environment variables. Please check your .env file.')
@@ -46,6 +46,9 @@ export const getCDNUrl = (url: string | null | undefined): string => {
   
   // Handle Supabase storage URLs
   if (urlStr.includes('/storage/v1')) {
+    // Basic cleanup for double slashes if any (except after protocol)
+    urlStr = urlStr.replace(/([^:])\/\//g, '$1/');
+    
     try {
       const urlObj = new URL(urlStr);
       const pathParts = urlObj.pathname.split('/');
@@ -54,6 +57,18 @@ export const getCDNUrl = (url: string | null | undefined): string => {
       if (publicIndex !== -1 && pathParts.length > publicIndex + 1) {
         const bucket = pathParts[publicIndex + 1];
         const rest = pathParts.slice(publicIndex + 2).join('/');
+        // If there's no rest, it might be just the bucket, but usually it's bucket/file
+        if (rest) {
+          return `https://cdn.fract.online/${bucket}/${rest}`;
+        }
+      }
+
+      // Handle cases where 'public' is not in the path but it's still a Supabase storage URL
+      // Pattern: /storage/v1/object/bucket/path...
+      const objectIndex = pathParts.indexOf('object');
+      if (objectIndex !== -1 && pathParts.length > objectIndex + 2) {
+        const bucket = pathParts[objectIndex + 1];
+        const rest = pathParts.slice(objectIndex + 2).join('/');
         return `https://cdn.fract.online/${bucket}/${rest}`;
       }
 
@@ -70,6 +85,11 @@ export const getCDNUrl = (url: string | null | undefined): string => {
 
   // Handle direct Supabase URLs that might not have /storage/v1 but are in the database
   if (urlStr.includes('.supabase.co')) {
+    // Try to extract bucket and path from URLs like https://xyz.supabase.co/storage/v1/object/public/bucket/path
+    const storageMatch = urlStr.match(/\/storage\/v1\/object\/(?:public\/)?([^/]+)\/(.+)$/);
+    if (storageMatch) {
+      return `https://cdn.fract.online/${storageMatch[1]}/${storageMatch[2]}`;
+    }
     return urlStr.replace(/[a-z0-9]+\.supabase\.co\/storage\/v1\/object\/public\//, 'https://cdn.fract.online/');
   }
 
