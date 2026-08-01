@@ -41,14 +41,20 @@ export const checkObjectExists = async (bucket: string, path: string): Promise<b
 
 export const uploadToR2 = async (bucket: string, path: string, file: Blob | File): Promise<string> => {
   const targetKey = `${bucket}/${path}`;
-  const command = new PutObjectCommand({
-    Bucket: 'fract-cdn',
-    Key: targetKey,
-    Body: file,
-    ContentType: file.type,
-  });
-
+  
   try {
+    // Convert Blob/File to Uint8Array to avoid 'readableStream.getReader is not a function' 
+    // error in some browser environments with @aws-sdk/client-s3 flexible checksums.
+    const arrayBuffer = await file.arrayBuffer();
+    const body = new Uint8Array(arrayBuffer);
+
+    const command = new PutObjectCommand({
+      Bucket: 'fract-cdn',
+      Key: targetKey,
+      Body: body,
+      ContentType: file.type,
+    });
+
     await r2Client.send(command);
     // Return the public URL
     return `${R2_PUBLIC_URL}/${targetKey}`;
