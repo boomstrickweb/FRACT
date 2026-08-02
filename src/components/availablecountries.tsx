@@ -2,13 +2,13 @@ import React from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Globe, ArrowLeft } from 'lucide-react';
 
-interface Country {
+export interface Country {
   name: string;
   code: string;
   reason: string;
 }
 
-const countries: Country[] = [
+export const countries: Country[] = [
   {
     name: "United States",
     code: "us",

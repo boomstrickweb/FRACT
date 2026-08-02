@@ -1,5 +1,6 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { MoreHorizontal, Heart, X, Eye, Bookmark, Flag, Edit3, Trash2, Play, Pause, Volume2, MessageSquare, Repeat2, Clock, Lightbulb, HelpCircle, FlaskConical, User, Link2, AlertTriangle, Shield, Bot, Eye as EyeIcon, ShieldAlert, Send, Share2, Sparkles, Cake } from 'lucide-react';
+import { getCampaignIcon } from '../lib/campaignIcons';
 import ManualReview from './ManualReview';
 import { supabase, getCDNUrl, wrapMediaUrl } from '../lib/supabase';
 import { useNavigate } from 'react-router-dom';
@@ -67,6 +68,12 @@ interface PostData {
   is_saved?: boolean;
   is_reposted?: boolean;
   is_anniversary?: boolean;
+  campaign_id?: string;
+  campaign?: {
+    id: string;
+    title: string;
+    category: string;
+  };
   user_reaction?: 'respect' | 'reject' | 'observe' | null;
   reaction_counts?: {
     respect_count: number;
@@ -861,6 +868,28 @@ const PostCard: React.FC<PostCardProps> = React.memo(({
             <Send className="w-4 h-4" />
             <span>Publish to Feed</span>
           </button>
+        </div>
+      )}
+
+      {/* Campaign Support Header */}
+      {post.campaign && (
+        <div className="mb-3 px-1 flex items-center gap-2 text-xs sm:text-sm text-slate-400 font-medium animate-in fade-in slide-in-from-top-2 duration-700">
+          {React.createElement(getCampaignIcon(post.campaign as { title: string; category: string }), { 
+            className: "w-3.5 h-3.5 text-blue-400" 
+          })}
+          <span>
+            {getDisplayName(post.author, post.author_id, post.is_anonymous)} is supporting{" "}
+            <button
+              onClick={(e) => {
+                e.stopPropagation();
+                navigate(`/c/${post.campaign?.id}`);
+              }}
+              className="text-blue-400 hover:text-blue-300 transition-colors font-bold italic"
+            >
+              "{post.campaign.title}"
+            </button>{" "}
+            campaign.
+          </span>
         </div>
       )}
 

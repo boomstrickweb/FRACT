@@ -54,6 +54,11 @@ interface PostData {
   };
   is_saved?: boolean;
   is_reposted?: boolean;
+  campaign_id?: string;
+  campaign?: {
+    id: string;
+    title: string;
+  };
   user_reaction?: 'respect' | 'reject' | 'observe' | null;
 }
 
@@ -339,6 +344,7 @@ const Search: React.FC<SearchProps> = ({ onBack, onProfileClick, onJoinClick }) 
         .from('posts')
         .select(`
           *,
+          campaign:campaigns(id, title, category),
           author:profiles!posts_author_id_fkey (
             id,
             name,

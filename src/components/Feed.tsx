@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
-import { Home, Search as SearchIcon, Plus, User, Radio, Waves, Zap, Sparkles } from 'lucide-react';
+import { Home, Search as SearchIcon, Plus, User, Radio, Waves, Zap, Sparkles, ChevronLeft } from 'lucide-react';
+import { MdCampaign } from 'react-icons/md';
 import { useParams, useNavigate } from 'react-router-dom';
 import Profile from './Profile';
 import CreatePost from './CreatePost';
@@ -14,6 +15,7 @@ import PostSeriesCard from './PostSeriesCard';
 import CreateReflect from './CreateReflect';
 import ReflectionsView from './ReflectionsView';
 import ActionPassword from './ActionPassword';
+import Campaigns from './Campaigns';
 import { supabase } from '../lib/supabase';
 import { loadEchoPosts, enrichEchoPosts, type EchoTier, type EchoMatch } from '../services/echoService';
 
@@ -45,6 +47,12 @@ interface PostData {
   is_saved?: boolean;
   is_reposted?: boolean;
   is_anniversary?: boolean;
+  campaign_id?: string;
+  campaign?: {
+    id: string;
+    title: string;
+    category: string;
+  };
   user_reaction?: 'respect' | 'reject' | 'observe' | null;
 }
 
@@ -81,11 +89,12 @@ const Feed = () => {
   const { tab } = useParams();
   const [activeTab, setActiveTab] = useState<'discover' | 'following' | 'echoes'>('discover');
   const [activeMainTab, setActiveMainTab] = useState<'feed' | 'soulmates'>('feed');
-  const [activeNavItem, setActiveNavItem] = useState<'home' | 'search' | 'create' | 'notifications' | 'profile'>(
-    (tab as 'home' | 'search' | 'create' | 'notifications' | 'profile') || 'home'
+  const [activeNavItem, setActiveNavItem] = useState<'home' | 'search' | 'create' | 'campaigns' | 'notifications' | 'profile'>(
+    (tab as 'home' | 'search' | 'create' | 'campaigns' | 'notifications' | 'profile') || 'home'
   );
   const [showProfile, setShowProfile] = useState(tab === 'profile');
   const [showSearch, setShowSearch] = useState(tab === 'search');
+  const [showCampaigns, setShowCampaigns] = useState(tab === 'campaigns');
   const [posts, setPosts] = useState<PostData[]>([]);
   const [lastFetchTime, setLastFetchTime] = useState<Record<string, number>>({});
   const CACHE_DURATION = 2 * 60 * 1000; // 2 minutes cache
@@ -277,6 +286,8 @@ const Feed = () => {
           is_anniversary,
           created_at,
           ai_flagged,
+          campaign_id,
+          campaign:campaigns(id, title, category),
           author:profiles!posts_author_id_fkey (
             id,
             name,
@@ -482,6 +493,7 @@ const Feed = () => {
     { id: 'home' as const, icon: Home, label: 'Home' },
     { id: 'search' as const, icon: SearchIcon, label: 'Search' },
     { id: 'create' as const, icon: Plus, label: 'Create' },
+    { id: 'campaigns' as const, icon: MdCampaign, label: 'Campaigns' },
     { id: 'profile' as const, icon: User, label: 'Profile' },
   ];
 
@@ -520,17 +532,20 @@ const Feed = () => {
 
   useEffect(() => {
     if (tab) {
-      setActiveNavItem(tab as 'home' | 'search' | 'create' | 'notifications' | 'profile');
+      setActiveNavItem(tab as 'home' | 'search' | 'create' | 'campaigns' | 'notifications' | 'profile');
       setShowProfile(tab === 'profile');
       setShowSearch(tab === 'search');
+      setShowCampaigns(tab === 'campaigns');
       if (tab === 'home') {
         setShowProfile(false);
         setShowSearch(false);
+        setShowCampaigns(false);
       }
     } else {
       setActiveNavItem('home');
       setShowProfile(false);
       setShowSearch(false);
+      setShowCampaigns(false);
     }
   }, [tab]);
 
@@ -628,6 +643,11 @@ const Feed = () => {
 
   const handleBackToFeedFromSearch = () => {
     setShowSearch(false);
+    navigate('/feed/home');
+  };
+
+  const handleBackToFeedFromCampaigns = () => {
+    setShowCampaigns(false);
     navigate('/feed/home');
   };
 
@@ -891,6 +911,10 @@ const Feed = () => {
 
   if (showSearch) {
     return <Search onBack={handleBackToFeedFromSearch} onProfileClick={handleProfileClick} />;
+  }
+
+  if (showCampaigns) {
+    return <Campaigns onBack={handleBackToFeedFromCampaigns} />;
   }
 
 

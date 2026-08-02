@@ -224,6 +224,7 @@ const Profile: React.FC<ProfileProps> = ({ userId: propsUserId, onBack, onNaviga
         .from('posts')
         .select(`
           *,
+          campaign:campaigns(id, title, category),
           author:profiles!posts_author_id_fkey (
             id,
             name,
@@ -309,6 +310,7 @@ const Profile: React.FC<ProfileProps> = ({ userId: propsUserId, onBack, onNaviga
           created_at,
           posts (
             *,
+            campaign:campaigns(id, title, category),
             author:profiles!posts_author_id_fkey (
               id,
               name,
@@ -393,6 +395,7 @@ const Profile: React.FC<ProfileProps> = ({ userId: propsUserId, onBack, onNaviga
             created_at,
             posts (
               *,
+              campaign:campaigns(id, title, category),
               author:profiles!posts_author_id_fkey (
                 id,
                 name,

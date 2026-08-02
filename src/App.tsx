@@ -12,6 +12,7 @@ const PostCard = lazy(() => import('./components/PostCard'));
 const TOS = lazy(() => import('./components/TOS'));
 const PP = lazy(() => import('./components/PP'));
 const AvailableCountries = lazy(() => import('./components/availablecountries'));
+const CampaignPage = lazy(() => import('./components/CampaignPage'));
 
 import { supabase } from './lib/supabase';
 import { updateSessionActivity } from './services/sessionService';
@@ -30,6 +31,7 @@ function PostRoute({ isAuthenticated }: { isAuthenticated: boolean }) {
         .from('posts')
         .select(`
           *,
+          campaign:campaigns(id, title, category),
           author:profiles(id, name, username, profile_pic_url, profile_type, is_verified, verification_type, verification_reason)
         `)
         .eq('id', postId)
@@ -88,6 +90,20 @@ function ProfileRoute() {
       onBack={() => navigate(-1)} 
       onNavigateToCreate={() => navigate('/create')}
       onJoinClick={() => navigate('/intro')}
+    />
+  );
+}
+
+function CampaignPageRoute() {
+  const { campaignId } = useParams();
+  const navigate = useNavigate();
+
+  if (!campaignId) return <Navigate to="/" replace />;
+
+  return (
+    <CampaignPage 
+      campaignId={campaignId} 
+      onBack={() => navigate(-1)} 
     />
   );
 }
@@ -218,6 +234,7 @@ function AppContent() {
           <Route path="/create" element={isAuthenticated ? <CreatePost onBack={() => navigate(-1)} onPostCreated={() => navigate('/feed')} /> : <Navigate to="/intro" replace />} />
           <Route path="/p/:postId" element={<PostRoute isAuthenticated={isAuthenticated} />} />
           <Route path="/u/:userId" element={<ProfileRoute />} />
+          <Route path="/c/:campaignId" element={<CampaignPageRoute />} />
           <Route path="/preview" element={<Preview />} />
           <Route path="/preview/:tab" element={<Preview />} />
           <Route path="/intro" element={<IntroPage onGetStarted={() => navigate('/auth')} />} />
