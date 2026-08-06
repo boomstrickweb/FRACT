@@ -1,8 +1,9 @@
 import React, { useState, useEffect } from 'react';
-import { ChevronLeft } from 'lucide-react';
+import { ChevronLeft, Heart } from 'lucide-react';
 import { getCampaignIcon } from '../lib/campaignIcons';
 import { supabase } from '../lib/supabase';
 import PostCard from './PostCard';
+import CampaignPost from './CampaignPost';
 
 interface Campaign {
   id: string;
@@ -24,6 +25,7 @@ const CampaignPage: React.FC<CampaignPageProps> = ({ campaign: initialCampaign, 
   const [currentUserId, setCurrentUserId] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(!initialCampaign);
   const [isLoadingPosts, setIsLoadingPosts] = useState(true);
+  const [showSupportFlow, setShowSupportFlow] = useState(false);
 
   useEffect(() => {
     if (!campaign && campaignId) {
@@ -156,6 +158,21 @@ const CampaignPage: React.FC<CampaignPageProps> = ({ campaign: initialCampaign, 
     );
   }
 
+  if (showSupportFlow && campaign) {
+    return (
+      <CampaignPost 
+        campaignId={campaign.id} 
+        campaignTitle={campaign.title}
+        campaignCategory={campaign.category}
+        onBack={() => setShowSupportFlow(false)}
+        onPostCreated={() => {
+          setShowSupportFlow(false);
+          fetchPosts();
+        }}
+      />
+    );
+  }
+
   return (
     <div className="min-h-screen bg-slate-900 text-white flex flex-col">
       <nav className="sticky top-0 z-50 bg-slate-900/80 backdrop-blur-xl border-b border-slate-700/50">
@@ -180,8 +197,17 @@ const CampaignPage: React.FC<CampaignPageProps> = ({ campaign: initialCampaign, 
               {campaign.title}
             </h2>
           </div>
-          <div className="flex items-center gap-2 mb-6 text-blue-400 font-bold uppercase tracking-wider text-sm">
-            <span>{campaign.supporter_count || posts.length} Supporters</span>
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-6">
+            <div className="flex items-center gap-2 text-blue-400 font-bold uppercase tracking-wider text-sm">
+              <span>{campaign.supporter_count || posts.length} Supporters</span>
+            </div>
+            <button
+              onClick={() => setShowSupportFlow(true)}
+              className="flex items-center justify-center gap-2 px-6 py-2.5 bg-blue-600 hover:bg-blue-500 text-white rounded-xl font-bold transition-all active:scale-95 shadow-lg shadow-blue-900/20"
+            >
+              <Heart className="w-4 h-4 fill-current" />
+              <span>Support</span>
+            </button>
           </div>
           <div className="space-y-4">
             <h4 className="text-sm font-bold text-slate-500 uppercase tracking-wider mb-2">Summary</h4>
