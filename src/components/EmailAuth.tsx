@@ -32,49 +32,33 @@ const EmailAuth: React.FC<EmailAuthProps> = ({ onBack, onAuthSuccess, onNavigate
 
     try {
       // First, validate the email against disposable email list
-      const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
-      const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY;
-      
-      if (!supabaseUrl || !supabaseAnonKey) {
-        throw new Error('Supabase configuration missing');
-      }
-
-      const validationUrl = `${supabaseUrl}/functions/v1/validate-email`;
-
-      const validationResponse = await fetch(validationUrl, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${supabaseAnonKey}`,
-          'apikey': supabaseAnonKey,
-        },
-        body: JSON.stringify({ email: emailAddress }),
+      const { data: validationData, error: validationError } = await supabase.functions.invoke('validate-email', {
+        body: { email: emailAddress }
       });
 
-      const validationData = await validationResponse.json();
+      if (validationError) {
+        console.error('Email validation error:', validationError);
+        throw new Error('Failed to validate email');
+      }
 
-      if (!validationData.valid) {
-        setError(validationData.message || 'This email address is not allowed.');
+      if (!validationData?.valid) {
+        setError(validationData?.message || 'This email address is not allowed.');
         setIsLoading(false);
         return;
       }
 
       // New IP and Anti-VPN/Country check
-      const verifyIpUrl = `${supabaseUrl}/functions/v1/verify-ip`;
-      const verifyIpResponse = await fetch(verifyIpUrl, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${supabaseAnonKey}`,
-          'apikey': supabaseAnonKey,
-        },
-        body: JSON.stringify({ email: emailAddress }),
+      const { data: verifyIpData, error: verifyIpError } = await supabase.functions.invoke('verify-ip', {
+        body: { email: emailAddress }
       });
 
-      const verifyIpData = await verifyIpResponse.json();
+      if (verifyIpError) {
+        console.error('IP verification error:', verifyIpError);
+        throw new Error('Verification failed. Please try again later.');
+      }
 
-      if (!verifyIpData.allowed) {
-        setError(verifyIpData.message || 'Verification failed. Please try again later.');
+      if (!verifyIpData?.allowed) {
+        setError(verifyIpData?.message || 'Verification failed. Please try again later.');
         setIsLoading(false);
         return;
       }
@@ -276,29 +260,17 @@ const EmailAuth: React.FC<EmailAuthProps> = ({ onBack, onAuthSuccess, onNavigate
 
       try {
         // Validate email again before resending
-        const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
-        const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY;
-        
-        if (!supabaseUrl || !supabaseAnonKey) {
-          throw new Error('Supabase configuration missing');
-        }
-
-        const validationUrl = `${supabaseUrl}/functions/v1/validate-email`;
-
-        const validationResponse = await fetch(validationUrl, {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            'Authorization': `Bearer ${supabaseAnonKey}`,
-            'apikey': supabaseAnonKey,
-          },
-          body: JSON.stringify({ email }),
+        const { data: validationData, error: validationError } = await supabase.functions.invoke('validate-email', {
+          body: { email }
         });
 
-        const validationData = await validationResponse.json();
+        if (validationError) {
+          console.error('Resend validation error:', validationError);
+          throw new Error('Failed to validate email');
+        }
 
-        if (!validationData.valid) {
-          setError(validationData.message || 'This email address is not allowed.');
+        if (!validationData?.valid) {
+          setError(validationData?.message || 'This email address is not allowed.');
           setIsLoading(false);
           return;
         }

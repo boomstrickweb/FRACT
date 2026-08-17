@@ -29,23 +29,14 @@ const ActionPassword: React.FC<ActionPasswordProps> = ({
     setError('');
 
     try {
-      const { data: { session } } = await supabase.auth.getSession();
-      if (!session) throw new Error('Not authenticated');
-
-      const response = await fetch(`${import.meta.env.VITE_SUPABASE_URL}/functions/v1/manage-action-password`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${session.access_token}`,
-          'apikey': import.meta.env.VITE_SUPABASE_ANON_KEY
-        },
-        body: JSON.stringify({
+      const { data: result, error: invokeError } = await supabase.functions.invoke('manage-action-password', {
+        body: {
           action: 'verify',
           password
-        })
+        }
       });
 
-      const result = await response.json();
+      if (invokeError) throw invokeError;
 
       if (result.isValid) {
         onVerify(password);

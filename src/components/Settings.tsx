@@ -1229,18 +1229,12 @@ const Settings: React.FC<SettingsProps> = ({ onBack, onProfileUpdated, onLogout 
                           setPasswordError('Passwords do not match.');
                         } else {
                           try {
-                            const { data: { session } } = await supabase.auth.getSession();
-                            const response = await fetch(`${import.meta.env.VITE_SUPABASE_URL}/functions/v1/manage-action-password`, {
-                              method: 'POST',
-                              headers: {
-                                'Content-Type': 'application/json',
-                                'Authorization': `Bearer ${session?.access_token}`,
-                                'apikey': import.meta.env.VITE_SUPABASE_ANON_KEY
-                              },
-                              body: JSON.stringify({ action: 'set', password: confirmPassword })
+                            const { data: result, error: invokeError } = await supabase.functions.invoke('manage-action-password', {
+                              body: { action: 'set', password: confirmPassword }
                             });
                             
-                            const result = await response.json();
+                            if (invokeError) throw invokeError;
+                            
                             if (result.success) {
                               setHasActionPassword(true);
                               setActionPasswordStep('settings');
@@ -2285,18 +2279,12 @@ const Settings: React.FC<SettingsProps> = ({ onBack, onProfileUpdated, onLogout 
         <ActionPassword
           onVerify={async (password) => {
             try {
-              const { data: { session } } = await supabase.auth.getSession();
-              const response = await fetch(`${import.meta.env.VITE_SUPABASE_URL}/functions/v1/manage-action-password`, {
-                method: 'POST',
-                headers: {
-                  'Content-Type': 'application/json',
-                  'Authorization': `Bearer ${session?.access_token}`,
-                  'apikey': import.meta.env.VITE_SUPABASE_ANON_KEY
-                },
-                body: JSON.stringify({ action: 'disable', password })
+              const { data: result, error: invokeError } = await supabase.functions.invoke('manage-action-password', {
+                body: { action: 'disable', password }
               });
               
-              const result = await response.json();
+              if (invokeError) throw invokeError;
+              
               if (result.success) {
                 setHasActionPassword(false);
                 setActionPasswordStep('none');
@@ -2341,22 +2329,16 @@ const Settings: React.FC<SettingsProps> = ({ onBack, onProfileUpdated, onLogout 
           onVerify={async (password) => {
             const { id, newSettings } = showActionPasswordForToggle;
             try {
-              const { data: { session } } = await supabase.auth.getSession();
-              const response = await fetch(`${import.meta.env.VITE_SUPABASE_URL}/functions/v1/manage-action-password`, {
-                method: 'POST',
-                headers: {
-                  'Content-Type': 'application/json',
-                  'Authorization': `Bearer ${session?.access_token}`,
-                  'apikey': import.meta.env.VITE_SUPABASE_ANON_KEY
-                },
-                body: JSON.stringify({ 
+              const { data: result, error: invokeError } = await supabase.functions.invoke('manage-action-password', {
+                body: { 
                   action: 'update_settings', 
                   settings: newSettings,
                   password 
-                })
+                }
               });
               
-              const result = await response.json();
+              if (invokeError) throw invokeError;
+              
               if (result.success) {
                 setProtectedActions(newSettings);
                 setShowActionPasswordForToggle(null);
