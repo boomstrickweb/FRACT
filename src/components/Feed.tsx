@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Home, Search as SearchIcon, Plus, User, Radio, Waves, Zap, Sparkles, ChevronLeft } from 'lucide-react';
+import { Home, Search as SearchIcon, Plus, User, Radio, Waves, Zap, Sparkles, ChevronLeft, X } from 'lucide-react';
 import { MdCampaign } from 'react-icons/md';
 import { useParams, useNavigate } from 'react-router-dom';
 import Profile from './Profile';
@@ -109,6 +109,9 @@ const Feed = () => {
   const [echoTier, setEchoTier] = useState<EchoTier>('weak');
   const [isLoadingEchoes, setIsLoadingEchoes] = useState(false);
   const [seriesList, setSeriesList] = useState<SeriesData[]>([]);
+  const [showSupportBanner, setShowSupportBanner] = useState(() => {
+    return localStorage.getItem('fract_support_banner_closed') !== 'true';
+  });
   const [hideAiPosts, setHideAiPosts] = useState(false);
   const [mixedFeed, setMixedFeed] = useState(true);
   const [interestCategories, setInterestCategories] = useState<string[]>([]);
@@ -682,6 +685,11 @@ const Feed = () => {
     setProtocolPostId(null);
   };
 
+  const handleCloseBanner = () => {
+    setShowSupportBanner(false);
+    localStorage.setItem('fract_support_banner_closed', 'true');
+  };
+
   const handleNavigateToCreate = async () => {
     const { data: { user } } = await supabase.auth.getUser();
     if (user) {
@@ -932,6 +940,34 @@ const Feed = () => {
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-gray-900 via-slate-800 to-gray-900">
+      {/* Support Banner */}
+      {showSupportBanner && (
+        <div className="bg-slate-800/90 border-b border-slate-700/50 backdrop-blur-md">
+          <div className="max-w-6xl mx-auto px-4 py-2 flex items-center justify-between gap-4">
+            <div className="flex items-center gap-4 overflow-hidden">
+              <a 
+                href="https://ko-fi.com/fractsocial/goal?g=1"
+                target="_blank"
+                rel="noopener noreferrer"
+                className="flex-shrink-0 bg-slate-100 hover:bg-white text-slate-900 text-xs sm:text-sm font-bold px-3 py-1.5 rounded-full transition-colors whitespace-nowrap"
+              >
+                Support FRACT
+              </a>
+              <div className="text-slate-300 text-xs sm:text-sm truncate">
+                <span className="font-semibold text-slate-100">Help keep FRACT independent. </span>
+                No ads. No selling your data. Just FRACT. Even just $3 helps us keep growing.
+              </div>
+            </div>
+            <button 
+              onClick={handleCloseBanner}
+              className="p-1 hover:bg-slate-700/50 rounded-full text-slate-400 hover:text-slate-200 transition-colors flex-shrink-0"
+              aria-label="Close banner"
+            >
+              <X className="w-4 h-4" />
+            </button>
+          </div>
+        </div>
+      )}
       {/* Top Navigation Bar */}
       <nav className="sticky top-0 z-50 bg-slate-900/80 backdrop-blur-xl border-b border-slate-700/50">
         <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8">
