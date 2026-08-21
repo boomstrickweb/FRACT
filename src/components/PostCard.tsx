@@ -126,6 +126,9 @@ const PostCard: React.FC<PostCardProps> = React.memo(({
   const [showModerationModal, setShowModerationModal] = useState(false);
   const [showManualReview, setShowManualReview] = useState(false);
   const [appealSubmitted, setAppealSubmitted] = useState(false);
+  const [showAiAppealConfirm, setShowAiAppealConfirm] = useState(false);
+  const [isAiAppealing, setIsAiAppealing] = useState(false);
+  const [hasAppealedAi, setHasAppealedAi] = useState(false);
   const [isAdmin, setIsAdmin] = useState(false);
   const [localReflectionCount, setLocalReflectionCount] = useState<number>(reflectionCount || 0);
   const [isActuallyEdited, setIsActuallyEdited] = useState(false);
@@ -209,6 +212,49 @@ const PostCard: React.FC<PostCardProps> = React.memo(({
     }
   }, [post.id]);
 
+  const checkAiAppealStatus = React.useCallback(async () => {
+    if (!currentUserId || !post.ai_flagged) return;
+
+    try {
+      const { count, error } = await supabase
+        .from('ai_review')
+        .select('*', { count: 'exact', head: true })
+        .eq('post_id', post.id)
+        .eq('user_id', currentUserId);
+
+      if (error) throw error;
+      if (count && count > 0) {
+        setHasAppealedAi(true);
+      }
+    } catch (error) {
+      console.error('Error checking AI appeal status:', error);
+    }
+  }, [currentUserId, post.id, post.ai_flagged]);
+
+  const handleAiAppeal = async () => {
+    if (!currentUserId || isAiAppealing || hasAppealedAi) return;
+
+    setIsAiAppealing(true);
+    try {
+      const { error } = await supabase
+        .from('ai_review')
+        .insert({
+          post_id: post.id,
+          user_id: currentUserId,
+          status: 'pending'
+        });
+
+      if (error) throw error;
+      setHasAppealedAi(true);
+      setShowAiAppealConfirm(false);
+    } catch (error) {
+      console.error('Error submitting AI appeal:', error);
+      alert('Failed to submit appeal. Please try again.');
+    } finally {
+      setIsAiAppealing(false);
+    }
+  };
+
   const loadReactionCounts = React.useCallback(async () => {
     if (!isOwnPost || !currentUserId) return;
 
@@ -275,11 +321,16 @@ const PostCard: React.FC<PostCardProps> = React.memo(({
     // Check if post has edit history
     checkEditHistory();
 
+    // Check if user has appealed AI label
+    if (isOwnPost && post.ai_flagged) {
+      checkAiAppealStatus();
+    }
+
     // Load reaction counts if user is post author
     if (isOwnPost) {
       loadReactionCounts();
     }
-  }, [post.id, isOwnPost, loadReflectionCount, checkEditHistory, loadReactionCounts]);
+  }, [post.id, isOwnPost, loadReflectionCount, checkEditHistory, loadReactionCounts, checkAiAppealStatus, post.ai_flagged]);
 
   useEffect(() => {
     // Record view when post comes into view
@@ -1111,6 +1162,51 @@ const PostCard: React.FC<PostCardProps> = React.memo(({
       {/* Content */}
       <div className="mb-3 sm:mb-4">
         {renderPostContent()}
+
+        {/* AI Appeal Section for Post Owner */}
+        {isOwnPost && post.ai_flagged && !hasAppealedAi && (
+          <div className="mt-4 p-4 bg-purple-500/5 border border-purple-500/20 rounded-2xl">
+            {!showAiAppealConfirm ? (
+              <button
+                onClick={() => setShowAiAppealConfirm(true)}
+                className="px-4 py-2 bg-purple-600 hover:bg-purple-500 text-white rounded-xl text-sm font-bold transition-all shadow-lg shadow-purple-900/20"
+              >
+                Appeal AI label
+              </button>
+            ) : (
+              <div className="flex items-center space-x-3">
+                <button
+                  onClick={() => setShowAiAppealConfirm(false)}
+                  className="px-4 py-2 bg-slate-700 hover:bg-slate-600 text-slate-200 rounded-xl text-sm font-bold transition-all"
+                  disabled={isAiAppealing}
+                >
+                  Cancel
+                </button>
+                <button
+                  onClick={handleAiAppeal}
+                  className="px-4 py-2 bg-purple-600 hover:bg-purple-500 text-white rounded-xl text-sm font-bold transition-all flex items-center space-x-2 shadow-lg shadow-purple-900/20"
+                  disabled={isAiAppealing}
+                >
+                  {isAiAppealing ? (
+                    <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+                  ) : (
+                    <span>Appeal</span>
+                  )}
+                </button>
+              </div>
+            )}
+            <p className="mt-2 text-slate-400 text-xs sm:text-sm">
+              Think this post was incorrectly labeled as AI-generated? You can appeal this decision.
+            </p>
+          </div>
+        )}
+        
+        {isOwnPost && hasAppealedAi && (
+          <div className="mt-4 p-3 bg-green-500/10 border border-green-500/20 rounded-xl flex items-center space-x-2">
+            <ShieldAlert className="w-4 h-4 text-green-400" />
+            <span className="text-green-400 text-xs sm:text-sm font-medium">AI label appeal submitted</span>
+          </div>
+        )}
 
         {/* Original post for replies */}
         {post.reply_to_post_id && renderOriginalPost()}
