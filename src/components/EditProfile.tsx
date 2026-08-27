@@ -1,6 +1,6 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { ArrowLeft, Camera, Save, User, Image, Heart, Sparkles } from 'lucide-react';
-import { supabase, getCDNUrl } from '../lib/supabase';
+import { supabase, getCDNUrl, wrapMediaUrl } from '../lib/supabase';
 import { uploadToR2 } from '../lib/r2.ts';
 
 interface EditProfileProps {
@@ -358,7 +358,7 @@ const EditProfile: React.FC<EditProfileProps> = ({ onBack, onProfileUpdated }) =
                 <div className="w-24 h-24 rounded-full bg-slate-800/50 border-2 border-slate-700 flex items-center justify-center overflow-hidden">
                   {profilePicPreview ? (
                     <img
-                      src={profilePicPreview}
+                      src={wrapMediaUrl(profilePicPreview)}
                       alt="Profile"
                       className="w-full h-full object-cover"
                     />
