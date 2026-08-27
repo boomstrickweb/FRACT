@@ -35,17 +35,59 @@ const OTPVerification: React.FC<OTPVerificationProps> = ({
   }, []);
 
   const handleInputChange = (index: number, value: string) => {
-    if (value.length > 1) return;
-    
+    const rawDigits = value.replace(/\D/g, '');
+    if (rawDigits.length > 1) {
+      const digits = rawDigits.slice(0, 6).split('');
+      const newOtp = [...otp];
+      const startIndex = digits.length === 6 ? 0 : index;
+      digits.forEach((digit, idx) => {
+        if (startIndex + idx < 6) {
+          newOtp[startIndex + idx] = digit;
+        }
+      });
+      setOtp(newOtp);
+
+      const focusIndex = Math.min(startIndex + digits.length, 5);
+      inputRefs.current[focusIndex]?.focus();
+
+      if (newOtp.every((digit) => digit !== '')) {
+        onVerify(newOtp.join(''));
+      }
+      return;
+    }
+
     const newOtp = [...otp];
-    newOtp[index] = value;
+    newOtp[index] = rawDigits;
     setOtp(newOtp);
 
-    if (value && index < 5) {
+    if (rawDigits && index < 5) {
       inputRefs.current[index + 1]?.focus();
     }
 
-    if (newOtp.every(digit => digit !== '')) {
+    if (newOtp.every((digit) => digit !== '')) {
+      onVerify(newOtp.join(''));
+    }
+  };
+
+  const handlePaste = (e: React.ClipboardEvent<HTMLInputElement>, currentIndex: number) => {
+    e.preventDefault();
+    const pastedData = e.clipboardData.getData('text').trim();
+    const digits = pastedData.replace(/\D/g, '').slice(0, 6).split('');
+    if (digits.length === 0) return;
+
+    const newOtp = [...otp];
+    const startIndex = digits.length === 6 ? 0 : currentIndex;
+    digits.forEach((digit, idx) => {
+      if (startIndex + idx < 6) {
+        newOtp[startIndex + idx] = digit;
+      }
+    });
+    setOtp(newOtp);
+
+    const focusIndex = Math.min(startIndex + digits.length, 5);
+    inputRefs.current[focusIndex]?.focus();
+
+    if (newOtp.every((digit) => digit !== '')) {
       onVerify(newOtp.join(''));
     }
   };
@@ -101,6 +143,7 @@ const OTPVerification: React.FC<OTPVerificationProps> = ({
               maxLength={1}
               value={digit}
               onChange={(e) => handleInputChange(index, e.target.value)}
+              onPaste={(e) => handlePaste(e, index)}
               onKeyDown={(e) => handleKeyDown(index, e)}
               disabled={isLoading}
               className="w-10 h-12 sm:w-12 sm:h-14 text-center text-lg sm:text-xl font-bold bg-slate-800/50 border border-slate-700 rounded-xl sm:rounded-2xl text-slate-200 focus:outline-none focus:ring-2 focus:ring-slate-500 focus:border-transparent transition-all duration-300 backdrop-blur-sm disabled:opacity-50"
