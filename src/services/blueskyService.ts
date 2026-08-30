@@ -93,7 +93,7 @@ export const initiateBlueskyOAuth = async (handle?: string): Promise<{ authUrl: 
   
   // AT Protocol / Bluesky OAuth authorization endpoint
   const authUrl = new URL('https://bsky.social/oauth/authorize');
-  authUrl.searchParams.set('client_id', redirectUri);
+  authUrl.searchParams.set('client_id', 'https://fract.online/oauth/client-metadata.json');
   authUrl.searchParams.set('response_type', 'code');
   authUrl.searchParams.set('redirect_uri', redirectUri);
   authUrl.searchParams.set('scope', 'atproto transition:generic');
