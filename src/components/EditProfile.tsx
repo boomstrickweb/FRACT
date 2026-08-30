@@ -1,7 +1,9 @@
 import React, { useState, useRef, useEffect } from 'react';
-import { ArrowLeft, Camera, Save, User, Image, Heart, Sparkles } from 'lucide-react';
+import { ArrowLeft, Camera, Save, User, Image, Heart, Sparkles, X } from 'lucide-react';
 import { supabase, getCDNUrl, wrapMediaUrl } from '../lib/supabase';
 import { uploadToR2 } from '../lib/r2.ts';
+import BlueskyIcon from './BlueskyIcon';
+import { initiateBlueskyOAuth, linkBlueskyProfile, disconnectBlueskyProfile } from '../services/blueskyService';
 
 interface EditProfileProps {
   onBack: () => void;
@@ -16,6 +18,8 @@ interface ProfileData {
   cover_pic_url?: string;
   beliefs?: string;
   field?: string;
+  bluesky_handle?: string | null;
+  bluesky_did?: string | null;
   soulcode?: {
     core_drive: string;
     value_spectrum: string;
@@ -63,12 +67,60 @@ const EditProfile: React.FC<EditProfileProps> = ({ onBack, onProfileUpdated }) =
   const [isSaving, setIsSaving] = useState(false);
   const [error, setError] = useState('');
 
+  // Bluesky connection state
+  const [blueskyHandle, setBlueskyHandle] = useState<string>('');
+  const [blueskyInput, setBlueskyInput] = useState('');
+  const [showBlueskyModal, setShowBlueskyModal] = useState(false);
+  const [isConnectingBluesky, setIsConnectingBluesky] = useState(false);
+  const [isDisconnectingBluesky, setIsDisconnectingBluesky] = useState(false);
+  const [blueskyModalError, setBlueskyModalError] = useState('');
+
   const profilePicRef = useRef<HTMLInputElement>(null);
   const coverPicRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
     loadProfile();
+    checkOAuthCallback();
+
+    const handleWindowFocus = () => {
+      loadProfile();
+    };
+    window.addEventListener('focus', handleWindowFocus);
+    return () => window.removeEventListener('focus', handleWindowFocus);
   }, []);
+
+  const checkOAuthCallback = async () => {
+    try {
+      const params = new URLSearchParams(window.location.search);
+      const code = params.get('code');
+      const state = params.get('state');
+      const savedState = localStorage.getItem('bsky_oauth_state') || sessionStorage.getItem('bsky_oauth_state');
+      const savedHandle = localStorage.getItem('bsky_oauth_handle') || sessionStorage.getItem('bsky_oauth_handle');
+
+      if (code && state && state === savedState && savedHandle) {
+        // Clear query parameters
+        window.history.replaceState({}, document.title, window.location.pathname);
+        const { data: { user } } = await supabase.auth.getUser();
+        if (user) {
+          const res = await linkBlueskyProfile(user.id, savedHandle);
+          if (res.success) {
+            setBlueskyHandle(res.handle);
+            setShowBlueskyModal(false);
+            onProfileUpdated?.();
+          }
+        }
+      }
+    } catch (err) {
+      console.error('Error handling Bluesky OAuth callback:', err);
+    } finally {
+      localStorage.removeItem('bsky_oauth_state');
+      localStorage.removeItem('bsky_oauth_verifier');
+      localStorage.removeItem('bsky_oauth_handle');
+      sessionStorage.removeItem('bsky_oauth_state');
+      sessionStorage.removeItem('bsky_oauth_verifier');
+      sessionStorage.removeItem('bsky_oauth_handle');
+    }
+  };
 
   const loadProfile = async () => {
     try {
@@ -101,6 +153,7 @@ const EditProfile: React.FC<EditProfileProps> = ({ onBack, onProfileUpdated }) =
       });
       setProfilePicPreview(profile.profile_pic_url);
       setCoverPicPreview(profile.cover_pic_url);
+      setBlueskyHandle(profile.bluesky_handle || '');
 
       // Load soulcode
       const { data: soulcodeData } = await supabase
@@ -122,6 +175,45 @@ const EditProfile: React.FC<EditProfileProps> = ({ onBack, onProfileUpdated }) =
       setError('An unexpected error occurred');
     } finally {
       setIsLoading(false);
+    }
+  };
+
+  const handleConnectBlueskyOAuth = async () => {
+    if (!blueskyInput.trim()) {
+      setBlueskyModalError('Please enter your Bluesky handle');
+      return;
+    }
+    setIsConnectingBluesky(true);
+    setBlueskyModalError('');
+    try {
+      const cleanHandle = blueskyInput.trim().replace(/^@/, '');
+      const { authUrl } = await initiateBlueskyOAuth(cleanHandle);
+      window.open(authUrl, '_blank', 'noopener,noreferrer');
+      setIsConnectingBluesky(false);
+    } catch (err: any) {
+      setBlueskyModalError(err.message || 'Failed to initiate Bluesky OAuth');
+      setIsConnectingBluesky(false);
+    }
+  };
+
+  const handleDisconnectBluesky = async () => {
+    if (!window.confirm('Are you sure you want to disconnect your Bluesky account?')) return;
+    setIsDisconnectingBluesky(true);
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) throw new Error('User not authenticated');
+
+      const res = await disconnectBlueskyProfile(user.id);
+      if (res.success) {
+        setBlueskyHandle('');
+        onProfileUpdated?.();
+      } else {
+        setError(res.error || 'Failed to disconnect Bluesky');
+      }
+    } catch (err: any) {
+      setError(err.message || 'Failed to disconnect Bluesky');
+    } finally {
+      setIsDisconnectingBluesky(false);
     }
   };
 
@@ -451,6 +543,70 @@ const EditProfile: React.FC<EditProfileProps> = ({ onBack, onProfileUpdated }) =
             </select>
           </div>
 
+          {/* Bluesky Connection */}
+          <div className="space-y-4">
+            <h3 className="text-lg font-semibold text-slate-200 flex items-center space-x-2">
+              <BlueskyIcon className="w-5 h-5 text-sky-400 fill-current" />
+              <span>Bluesky Integration</span>
+            </h3>
+            
+            <div className="p-5 bg-slate-800/50 border border-slate-700 rounded-2xl backdrop-blur-sm">
+              {blueskyHandle ? (
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+                  <div className="flex items-center space-x-3">
+                    <div className="w-12 h-12 rounded-2xl bg-sky-500/10 border border-sky-500/20 flex items-center justify-center">
+                      <BlueskyIcon className="w-6 h-6 text-sky-400 fill-current" />
+                    </div>
+                    <div>
+                      <div className="flex items-center space-x-2">
+                        <span className="text-xs text-green-400 font-medium bg-green-500/10 px-2.5 py-0.5 rounded-full border border-green-500/20">Connected</span>
+                      </div>
+                      <a
+                        href={`https://bsky.app/profile/${blueskyHandle}`}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="text-slate-100 font-semibold hover:text-sky-400 transition-colors inline-flex items-center space-x-1 mt-1 text-base"
+                      >
+                        <span>@{blueskyHandle}</span>
+                      </a>
+                    </div>
+                  </div>
+
+                  <div className="flex items-center space-x-2">
+                    <button
+                      type="button"
+                      onClick={handleDisconnectBluesky}
+                      disabled={isDisconnectingBluesky}
+                      className="px-4 py-2 bg-red-500/10 hover:bg-red-500/20 text-red-400 hover:text-red-300 border border-red-500/30 rounded-xl text-sm font-medium transition-all duration-300 disabled:opacity-50"
+                    >
+                      {isDisconnectingBluesky ? 'Disconnecting...' : 'Disconnect'}
+                    </button>
+                  </div>
+                </div>
+              ) : (
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+                  <div>
+                    <h4 className="text-slate-200 font-medium text-base">Link your Bluesky account</h4>
+                    <p className="text-slate-400 text-sm mt-1">
+                      Connect your Bluesky profile to verify your identity and display your handle on your profile.
+                    </p>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setBlueskyModalError('');
+                      setShowBlueskyModal(true);
+                    }}
+                    className="flex items-center justify-center space-x-2 px-5 py-2.5 bg-[#0285FF] hover:bg-[#0070d8] text-white font-medium rounded-xl transition-all duration-300 shadow-md hover:shadow-sky-500/20 whitespace-nowrap transform hover:scale-105"
+                  >
+                    <BlueskyIcon className="w-4 h-4 fill-current" />
+                    <span>Connect to Bluesky</span>
+                  </button>
+                </div>
+              )}
+            </div>
+          </div>
+
           {/* Soulcode Section */}
           <div className="space-y-4">
             <div className="flex items-center justify-between">
@@ -559,6 +715,75 @@ const EditProfile: React.FC<EditProfileProps> = ({ onBack, onProfileUpdated }) =
           </div>
         </div>
       </div>
+
+      {/* Bluesky Connect Modal */}
+      {showBlueskyModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/70 backdrop-blur-sm">
+          <div className="bg-slate-800 border border-slate-700 rounded-3xl p-6 max-w-md w-full shadow-2xl space-y-5 animate-fade-in">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center space-x-3">
+                <div className="w-10 h-10 rounded-2xl bg-sky-500/10 border border-sky-500/20 flex items-center justify-center">
+                  <BlueskyIcon className="w-5 h-5 text-sky-400 fill-current" />
+                </div>
+                <div>
+                  <h3 className="text-lg font-bold text-slate-100">Connect to Bluesky</h3>
+                  <p className="text-xs text-slate-400">OAuth & AT Protocol Integration</p>
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={() => setShowBlueskyModal(false)}
+                className="p-2 text-slate-400 hover:text-slate-200 hover:bg-slate-700/50 rounded-xl transition-colors"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            {blueskyModalError && (
+              <div className="p-3 bg-red-500/10 border border-red-500/20 rounded-xl text-red-400 text-sm">
+                {blueskyModalError}
+              </div>
+            )}
+
+            <div className="space-y-2">
+              <label className="block text-slate-300 text-sm font-medium">
+                Bluesky Handle
+              </label>
+              <div className="relative">
+                <span className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400 font-medium">@</span>
+                <input
+                  type="text"
+                  value={blueskyInput}
+                  onChange={(e) => setBlueskyInput(e.target.value)}
+                  placeholder="alice.bsky.social"
+                  className="w-full pl-8 pr-4 py-3 bg-slate-900/60 border border-slate-700 rounded-xl text-slate-100 placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-sky-500 focus:border-transparent text-sm"
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter') {
+                      e.preventDefault();
+                      handleConnectBlueskyOAuth();
+                    }
+                  }}
+                />
+              </div>
+              <p className="text-xs text-slate-500">
+                Enter your handle (e.g. username.bsky.social or custom domain)
+              </p>
+            </div>
+
+            <div className="space-y-2 pt-2">
+              <button
+                type="button"
+                onClick={handleConnectBlueskyOAuth}
+                disabled={isConnectingBluesky}
+                className="w-full flex items-center justify-center space-x-2 py-3 px-4 bg-[#0285FF] hover:bg-[#0070d8] text-white font-medium rounded-xl transition-all duration-300 disabled:opacity-50 shadow-md hover:shadow-sky-500/20"
+              >
+                <BlueskyIcon className="w-4 h-4 fill-current" />
+                <span>{isConnectingBluesky ? 'Opening Bluesky...' : 'Authorize with Bluesky (OAuth)'}</span>
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };

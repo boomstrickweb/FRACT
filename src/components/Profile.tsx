@@ -2,6 +2,8 @@ import React, { useState, useEffect } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { ArrowLeft, User, Calendar, Settings as SettingsIcon, CreditCard as Edit3, Users, UserPlus, UserMinus, MoreHorizontal, Flag, VolumeX, Ban, Plus, Heart, X, Eye, Newspaper, ShieldAlert, TrendingUp, FileEdit, Link2, AlertTriangle, Scale, Bookmark, BookOpen, MessageSquare } from 'lucide-react';
 import { supabase, getCDNUrl, wrapMediaUrl } from '../lib/supabase';
+import BlueskyIcon from './BlueskyIcon';
+import { disconnectBlueskyProfile } from '../services/blueskyService';
 import PostCard from './PostCard';
 import PostSeriesCard from './PostSeriesCard';
 import EditProfile from './EditProfile';
@@ -26,6 +28,8 @@ interface ProfileData {
   cover_pic_url?: string;
   beliefs?: string;
   field?: string;
+  bluesky_handle?: string | null;
+  bluesky_did?: string | null;
   created_at: string;
   show_following: boolean;
   show_respected_posts: boolean;
@@ -892,6 +896,20 @@ const Profile: React.FC<ProfileProps> = ({ userId: propsUserId, onBack, onNaviga
     }
   };
 
+  const handleDisconnectBluesky = async () => {
+    if (!profile) return;
+    if (!window.confirm('Are you sure you want to disconnect your Bluesky account?')) return;
+
+    try {
+      const res = await disconnectBlueskyProfile(profile.id);
+      if (res.success) {
+        setProfile(prev => prev ? { ...prev, bluesky_handle: null, bluesky_did: null } : null);
+      }
+    } catch (error) {
+      console.error('Error disconnecting Bluesky account:', error);
+    }
+  };
+
   const handleUnfollow = async () => {
     if (!currentUserId || !profile) return;
 
@@ -1619,6 +1637,31 @@ const Profile: React.FC<ProfileProps> = ({ userId: propsUserId, onBack, onNaviga
                 <Calendar className="w-4 h-4" />
                 <span>Joined {formatJoinDate(profile.created_at)}</span>
               </div>
+
+              {profile.bluesky_handle && (
+                <div className="flex items-center space-x-2">
+                  <a
+                    href={`https://bsky.app/profile/${profile.bluesky_handle}`}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="inline-flex items-center space-x-1.5 px-3 py-1 bg-sky-500/10 hover:bg-sky-500/20 border border-sky-500/30 text-sky-400 hover:text-sky-300 rounded-full text-sm font-medium transition-all duration-300 transform hover:scale-105"
+                    title={`View @${profile.bluesky_handle} on Bluesky`}
+                  >
+                    <BlueskyIcon className="w-3.5 h-3.5 fill-current" />
+                    <span>@{profile.bluesky_handle}</span>
+                  </a>
+                  {isOwnProfile && (
+                    <button
+                      type="button"
+                      onClick={handleDisconnectBluesky}
+                      className="text-xs text-slate-500 hover:text-red-400 transition-colors underline"
+                      title="Disconnect Bluesky"
+                    >
+                      Disconnect
+                    </button>
+                  )}
+                </div>
+              )}
             </div>
 
             {/* Follow Stats */}

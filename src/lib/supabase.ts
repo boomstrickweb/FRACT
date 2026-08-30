@@ -240,6 +240,8 @@ export type Database = {
           deactivated_at?: string
           two_factor_enabled: boolean
           password_hash?: string
+          bluesky_handle?: string | null
+          bluesky_did?: string | null
           created_at: string
           updated_at: string
         }
@@ -265,6 +267,8 @@ export type Database = {
           deactivated_at?: string
           two_factor_enabled?: boolean
           password_hash?: string
+          bluesky_handle?: string | null
+          bluesky_did?: string | null
           created_at?: string
           updated_at?: string
         }
@@ -291,6 +295,8 @@ export type Database = {
           deactivated_at?: string
           two_factor_enabled?: boolean
           password_hash?: string
+          bluesky_handle?: string | null
+          bluesky_did?: string | null
           created_at?: string
           updated_at?: string
         }
