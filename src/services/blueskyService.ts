@@ -100,9 +100,6 @@ export const initiateBlueskyOAuth = async (handle?: string): Promise<{ authUrl: 
   authUrl.searchParams.set('state', state);
   authUrl.searchParams.set('code_challenge', codeChallenge);
   authUrl.searchParams.set('code_challenge_method', 'S256');
-  if (handle) {
-    authUrl.searchParams.set('login_hint', handle);
-  }
 
   return {
     authUrl: authUrl.toString(),
