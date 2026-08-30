@@ -1,18 +1,19 @@
-import { useState, useEffect, lazy, Suspense } from 'react';
+import { useState, useEffect, Suspense } from 'react';
 import { HashRouter, Routes, Route, Navigate, useNavigate, useLocation } from 'react-router-dom';
+import { lazyWithRetry } from './utils/lazyWithRetry';
 
-// Lazy load components for performance
-const IntroPage = lazy(() => import('./components/IntroPage'));
-const EmailAuth = lazy(() => import('./components/EmailAuth'));
-const Feed = lazy(() => import('./components/Feed'));
-const Preview = lazy(() => import('./components/Preview'));
-const Profile = lazy(() => import('./components/Profile'));
-const CreatePost = lazy(() => import('./components/CreatePost'));
-const PostCard = lazy(() => import('./components/PostCard'));
-const TOS = lazy(() => import('./components/TOS'));
-const PP = lazy(() => import('./components/PP'));
-const AvailableCountries = lazy(() => import('./components/availablecountries'));
-const CampaignPage = lazy(() => import('./components/CampaignPage'));
+// Lazy load components with automatic reload on dynamic import failure (deployment hash changes)
+const IntroPage = lazyWithRetry(() => import('./components/IntroPage'));
+const EmailAuth = lazyWithRetry(() => import('./components/EmailAuth'));
+const Feed = lazyWithRetry(() => import('./components/Feed'));
+const Preview = lazyWithRetry(() => import('./components/Preview'));
+const Profile = lazyWithRetry(() => import('./components/Profile'));
+const CreatePost = lazyWithRetry(() => import('./components/CreatePost'));
+const PostCard = lazyWithRetry(() => import('./components/PostCard'));
+const TOS = lazyWithRetry(() => import('./components/TOS'));
+const PP = lazyWithRetry(() => import('./components/PP'));
+const AvailableCountries = lazyWithRetry(() => import('./components/availablecountries'));
+const CampaignPage = lazyWithRetry(() => import('./components/CampaignPage'));
 
 import { supabase } from './lib/supabase';
 import { updateSessionActivity } from './services/sessionService';
