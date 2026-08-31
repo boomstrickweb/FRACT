@@ -3,7 +3,7 @@ import { ArrowLeft, Camera, Save, User, Image, Heart, Sparkles, X } from 'lucide
 import { supabase, getCDNUrl, wrapMediaUrl } from '../lib/supabase';
 import { uploadToR2 } from '../lib/r2.ts';
 import BlueskyIcon from './BlueskyIcon';
-import { initiateBlueskyOAuth, linkBlueskyProfile, disconnectBlueskyProfile } from '../services/blueskyService';
+import { initiateBlueskyOAuth, handleBlueskyOAuthCallback, linkBlueskyProfile, disconnectBlueskyProfile } from '../services/blueskyService';
 
 interface EditProfileProps {
   onBack: () => void;
@@ -91,34 +91,18 @@ const EditProfile: React.FC<EditProfileProps> = ({ onBack, onProfileUpdated }) =
 
   const checkOAuthCallback = async () => {
     try {
-      const params = new URLSearchParams(window.location.search);
-      const code = params.get('code');
-      const state = params.get('state');
-      const savedState = localStorage.getItem('bsky_oauth_state') || sessionStorage.getItem('bsky_oauth_state');
-      const savedHandle = localStorage.getItem('bsky_oauth_handle') || sessionStorage.getItem('bsky_oauth_handle');
-
-      if (code && state && state === savedState && savedHandle) {
-        // Clear query parameters
-        window.history.replaceState({}, document.title, window.location.pathname);
-        const { data: { user } } = await supabase.auth.getUser();
-        if (user) {
-          const res = await linkBlueskyProfile(user.id, savedHandle);
-          if (res.success) {
-            setBlueskyHandle(res.handle);
-            setShowBlueskyModal(false);
-            onProfileUpdated?.();
-          }
+      const res = await handleBlueskyOAuthCallback();
+      if (res.handled) {
+        if (res.success && res.handle) {
+          setBlueskyHandle(res.handle);
+          setShowBlueskyModal(false);
+          onProfileUpdated?.();
+        } else if (res.error) {
+          setBlueskyModalError(res.error);
         }
       }
     } catch (err) {
       console.error('Error handling Bluesky OAuth callback:', err);
-    } finally {
-      localStorage.removeItem('bsky_oauth_state');
-      localStorage.removeItem('bsky_oauth_verifier');
-      localStorage.removeItem('bsky_oauth_handle');
-      sessionStorage.removeItem('bsky_oauth_state');
-      sessionStorage.removeItem('bsky_oauth_verifier');
-      sessionStorage.removeItem('bsky_oauth_handle');
     }
   };
 
@@ -188,8 +172,15 @@ const EditProfile: React.FC<EditProfileProps> = ({ onBack, onProfileUpdated }) =
     try {
       const cleanHandle = blueskyInput.trim().replace(/^@/, '');
       const { authUrl } = await initiateBlueskyOAuth(cleanHandle);
-      window.open(authUrl, '_blank', 'noopener,noreferrer');
-      setIsConnectingBluesky(false);
+      
+      // On mobile devices, opening in the same window prevents popup blocker issues and tab isolation
+      const isMobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
+      if (isMobile) {
+        window.location.href = authUrl;
+      } else {
+        window.open(authUrl, '_blank', 'noopener,noreferrer');
+        setIsConnectingBluesky(false);
+      }
     } catch (err: any) {
       setBlueskyModalError(err.message || 'Failed to initiate Bluesky OAuth');
       setIsConnectingBluesky(false);

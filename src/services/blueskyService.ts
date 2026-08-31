@@ -89,7 +89,7 @@ export const initiateBlueskyOAuth = async (handle?: string): Promise<{ authUrl: 
   if (origin.includes('//localhost')) {
     origin = origin.replace('//localhost', '//127.0.0.1');
   }
-  const redirectUri = `${origin}${window.location.pathname}`;
+  const redirectUri = `${origin}/`;
   
   // AT Protocol / Bluesky OAuth authorization endpoint
   const authUrl = new URL('https://bsky.social/oauth/authorize');
@@ -105,6 +105,63 @@ export const initiateBlueskyOAuth = async (handle?: string): Promise<{ authUrl: 
     authUrl: authUrl.toString(),
     state,
   };
+};
+
+/**
+ * Handles Bluesky OAuth callback globally when redirected back to the application
+ */
+export const handleBlueskyOAuthCallback = async (): Promise<{
+  handled: boolean;
+  success: boolean;
+  handle?: string;
+  error?: string;
+}> => {
+  try {
+    const params = new URLSearchParams(window.location.search);
+    const code = params.get('code');
+    const state = params.get('state');
+    const errorParam = params.get('error');
+    const errorDesc = params.get('error_description');
+
+    if (!code && !errorParam && !state) {
+      return { handled: false, success: false };
+    }
+
+    const savedState = localStorage.getItem('bsky_oauth_state') || sessionStorage.getItem('bsky_oauth_state');
+    const savedHandle = localStorage.getItem('bsky_oauth_handle') || sessionStorage.getItem('bsky_oauth_handle');
+
+    // Clean up query parameters from browser URL bar while preserving path/hash
+    const cleanUrl = `${window.location.origin}${window.location.pathname}${window.location.hash}`;
+    window.history.replaceState({}, document.title, cleanUrl);
+
+    // Always clear storage keys
+    localStorage.removeItem('bsky_oauth_state');
+    localStorage.removeItem('bsky_oauth_verifier');
+    localStorage.removeItem('bsky_oauth_handle');
+    sessionStorage.removeItem('bsky_oauth_state');
+    sessionStorage.removeItem('bsky_oauth_verifier');
+    sessionStorage.removeItem('bsky_oauth_handle');
+
+    if (errorParam) {
+      const msg = errorDesc ? decodeURIComponent(errorDesc).replace(/\+/g, ' ') : errorParam;
+      console.warn('Bluesky OAuth returned error:', msg);
+      return { handled: true, success: false, error: msg };
+    }
+
+    if (code && state && state === savedState && savedHandle) {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (user) {
+        const res = await linkBlueskyProfile(user.id, savedHandle);
+        return { handled: true, success: res.success, handle: res.handle, error: res.error };
+      }
+      return { handled: true, success: false, error: 'User session not found' };
+    }
+
+    return { handled: true, success: false, error: 'OAuth state mismatch or missing handle' };
+  } catch (err: any) {
+    console.error('Error handling Bluesky OAuth callback:', err);
+    return { handled: true, success: false, error: err?.message || 'OAuth callback processing failed' };
+  }
 };
 
 /**

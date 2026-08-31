@@ -17,6 +17,7 @@ const CampaignPage = lazyWithRetry(() => import('./components/CampaignPage'));
 
 import { supabase } from './lib/supabase';
 import { updateSessionActivity } from './services/sessionService';
+import { handleBlueskyOAuthCallback } from './services/blueskyService';
 import { useParams } from 'react-router-dom';
 
 function PostRoute({ isAuthenticated }: { isAuthenticated: boolean }) {
@@ -116,6 +117,22 @@ function AppContent() {
   const location = useLocation();
 
   useEffect(() => {
+    // Process any OAuth callbacks (Bluesky) at root level
+    const processOAuthRedirect = async () => {
+      try {
+        const res = await handleBlueskyOAuthCallback();
+        if (res.handled) {
+          const { data: { user } } = await supabase.auth.getUser();
+          if (user) {
+            navigate(`/u/${user.id}`);
+          }
+        }
+      } catch (err) {
+        console.error('Error handling root OAuth redirect:', err);
+      }
+    };
+
+    processOAuthRedirect();
     checkUserSession();
 
     // Set up periodic session activity updates
