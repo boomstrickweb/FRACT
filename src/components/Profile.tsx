@@ -1,6 +1,6 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
-import { ArrowLeft, User, Calendar, Settings as SettingsIcon, CreditCard as Edit3, Users, UserPlus, UserMinus, MoreHorizontal, Flag, VolumeX, Ban, Plus, Heart, X, Eye, Newspaper, ShieldAlert, TrendingUp, FileEdit, Link2, AlertTriangle, Scale, Bookmark, BookOpen, MessageSquare } from 'lucide-react';
+import { ArrowLeft, User, Calendar, Settings as SettingsIcon, CreditCard as Edit3, Users, UserPlus, UserMinus, MoreHorizontal, Flag, VolumeX, Ban, Plus, Heart, X, Eye, Newspaper, ShieldAlert, TrendingUp, FileEdit, Link2, AlertTriangle, Scale, Bookmark, BookOpen, MessageSquare, Loader2 } from 'lucide-react';
 import { supabase, getCDNUrl, wrapMediaUrl } from '../lib/supabase';
 import BlueskyIcon from './BlueskyIcon';
 import { disconnectBlueskyProfile } from '../services/blueskyService';
@@ -119,6 +119,11 @@ const Profile: React.FC<ProfileProps> = ({ userId: propsUserId, onBack, onNaviga
   const navigate = useNavigate();
   const [profile, setProfile] = useState<ProfileData | null>(null);
   const [posts, setPosts] = useState<PostData[]>([]);
+  const POSTS_PAGE_SIZE = 20;
+  const [postsCount, setPostsCount] = useState<number | null>(null);
+  const [hasMorePosts, setHasMorePosts] = useState(true);
+  const [isLoadingMorePosts, setIsLoadingMorePosts] = useState(false);
+  const sentinelRef = useRef<HTMLDivElement | null>(null);
   const [reactionPosts, setReactionPosts] = useState<{
     respected: PostData[];
     rejected: PostData[];
@@ -239,7 +244,7 @@ const Profile: React.FC<ProfileProps> = ({ userId: propsUserId, onBack, onNaviga
             verification_reason,
             profile_type
           )
-        `)
+        `, { count: 'exact' })
         .eq('author_id', targetUserId)
         .eq('is_anonymous', false);
 
@@ -248,19 +253,26 @@ const Profile: React.FC<ProfileProps> = ({ userId: propsUserId, onBack, onNaviga
         ? `moderation_score.lt.3,moderation_score.is.null,moderation_reason.eq.spam,author_id.eq.${effectiveUserId}`
         : `moderation_score.lt.3,moderation_score.is.null,moderation_reason.eq.spam`;
 
-      const { data: postsData, error: postsError } = await query
+      const { data: postsData, count, error: postsError } = await query
         .or(moderationFilter)
         .order('created_at', { ascending: false })
-        .limit(20);
+        .range(0, POSTS_PAGE_SIZE - 1);
 
       if (postsError) {
         console.error('Error loading posts:', postsError);
         return;
       }
 
+      if (count !== null && count !== undefined) {
+        setPostsCount(count);
+      }
+
+      const rawPosts = postsData || [];
+      setHasMorePosts(rawPosts.length === POSTS_PAGE_SIZE && (count === null || rawPosts.length < count));
+
       // Check which posts are saved and get user reactions
-      if (effectiveUserId && postsData && postsData.length > 0) {
-        const postIds = postsData.map((post: PostData) => post.id);
+      if (effectiveUserId && rawPosts.length > 0) {
+        const postIds = rawPosts.map((post: PostData) => post.id);
         
         // Parallelize enrichment fetches
         const [savedPostsRes, userReactionsRes] = await Promise.all([
@@ -282,7 +294,7 @@ const Profile: React.FC<ProfileProps> = ({ userId: propsUserId, onBack, onNaviga
         const savedPostIds = new Set(savedPosts?.map(sp => sp.post_id) || []);
         const reactionMap = new Map(userReactions?.map(r => [r.post_id, r.reaction_type]) || []);
 
-        const enrichedPosts = postsData.map(post => ({
+        const enrichedPosts = rawPosts.map(post => ({
           ...post,
           is_saved: savedPostIds.has(post.id),
           is_reposted: false,
@@ -291,12 +303,112 @@ const Profile: React.FC<ProfileProps> = ({ userId: propsUserId, onBack, onNaviga
 
         setPosts(enrichedPosts);
       } else {
-        setPosts(postsData || []);
+        setPosts(rawPosts);
       }
     } catch (error) {
       console.error('Error in loadPosts:', error);
     }
   }, []);
+
+  const loadMorePosts = useCallback(async () => {
+    const targetUserId = propsUserId || viewingUserId || profile?.id;
+    if (!targetUserId || isLoadingMorePosts || !hasMorePosts || activeTab !== 'posts') {
+      return;
+    }
+
+    try {
+      setIsLoadingMorePosts(true);
+      const from = posts.length;
+      const to = from + POSTS_PAGE_SIZE - 1;
+
+      const query = supabase
+        .from('posts')
+        .select(`
+          *,
+          campaign:campaigns(id, title, category),
+          author:profiles!posts_author_id_fkey (
+            id,
+            name,
+            username,
+            profile_pic_url,
+            is_verified,
+            verification_type,
+            verification_reason,
+            profile_type
+          )
+        `, { count: 'exact' })
+        .eq('author_id', targetUserId)
+        .eq('is_anonymous', false);
+
+      const effectiveUserId = currentUserId;
+      const moderationFilter = effectiveUserId 
+        ? `moderation_score.lt.3,moderation_score.is.null,moderation_reason.eq.spam,author_id.eq.${effectiveUserId}`
+        : `moderation_score.lt.3,moderation_score.is.null,moderation_reason.eq.spam`;
+
+      const { data: postsData, count, error: postsError } = await query
+        .or(moderationFilter)
+        .order('created_at', { ascending: false })
+        .range(from, to);
+
+      if (postsError) {
+        console.error('Error loading more posts:', postsError);
+        setIsLoadingMorePosts(false);
+        return;
+      }
+
+      if (count !== null && count !== undefined) {
+        setPostsCount(count);
+      }
+
+      const rawPosts = postsData || [];
+      if (rawPosts.length < POSTS_PAGE_SIZE || (count !== null && count !== undefined && from + rawPosts.length >= count)) {
+        setHasMorePosts(false);
+      }
+
+      if (rawPosts.length === 0) {
+        setIsLoadingMorePosts(false);
+        return;
+      }
+
+      let enrichedPosts = rawPosts;
+      if (effectiveUserId && rawPosts.length > 0) {
+        const postIds = rawPosts.map((post: PostData) => post.id);
+        
+        const [savedPostsRes, userReactionsRes] = await Promise.all([
+          supabase
+            .from('saved_posts')
+            .select('post_id')
+            .eq('user_id', effectiveUserId)
+            .in('post_id', postIds),
+          supabase
+            .from('post_reactions')
+            .select('post_id, reaction_type')
+            .eq('user_id', effectiveUserId)
+            .in('post_id', postIds)
+        ]);
+
+        const savedPostIds = new Set(savedPostsRes.data?.map((sp: any) => sp.post_id) || []);
+        const reactionMap = new Map(userReactionsRes.data?.map((r: any) => [r.post_id, r.reaction_type]) || []);
+
+        enrichedPosts = rawPosts.map(post => ({
+          ...post,
+          is_saved: savedPostIds.has(post.id),
+          is_reposted: false,
+          user_reaction: reactionMap.get(post.id) || null
+        }));
+      }
+
+      setPosts(prev => {
+        const existingIds = new Set(prev.map(p => p.id));
+        const newPosts = enrichedPosts.filter(p => !existingIds.has(p.id));
+        return [...prev, ...newPosts];
+      });
+    } catch (error) {
+      console.error('Error in loadMorePosts:', error);
+    } finally {
+      setIsLoadingMorePosts(false);
+    }
+  }, [propsUserId, viewingUserId, profile?.id, isLoadingMorePosts, hasMorePosts, activeTab, posts.length, currentUserId]);
 
   const loadSavedPosts = React.useCallback(async (targetUserId: string, loggedInUserId?: string | null) => {
     try {
@@ -866,6 +978,47 @@ const Profile: React.FC<ProfileProps> = ({ userId: propsUserId, onBack, onNaviga
     }
   }, [viewingUserId, loadProfile]);
 
+  // Infinite scroll trigger via IntersectionObserver
+  useEffect(() => {
+    if (activeTab !== 'posts' || !hasMorePosts || isLoadingMorePosts) return;
+
+    const observer = new IntersectionObserver(
+      (entries) => {
+        if (entries[0].isIntersecting) {
+          loadMorePosts();
+        }
+      },
+      { rootMargin: '300px' }
+    );
+
+    const currentSentinel = sentinelRef.current;
+    if (currentSentinel) {
+      observer.observe(currentSentinel);
+    }
+
+    return () => {
+      if (currentSentinel) {
+        observer.unobserve(currentSentinel);
+      }
+    };
+  }, [activeTab, hasMorePosts, isLoadingMorePosts, loadMorePosts]);
+
+  // Fallback window scroll handler
+  useEffect(() => {
+    if (activeTab !== 'posts' || !hasMorePosts || isLoadingMorePosts) return;
+
+    const handleScroll = () => {
+      const scrollPosition = window.innerHeight + window.scrollY;
+      const bottomThreshold = document.documentElement.scrollHeight - 600;
+      if (scrollPosition >= bottomThreshold) {
+        loadMorePosts();
+      }
+    };
+
+    window.addEventListener('scroll', handleScroll, { passive: true });
+    return () => window.removeEventListener('scroll', handleScroll);
+  }, [activeTab, hasMorePosts, isLoadingMorePosts, loadMorePosts]);
+
   const handleFollow = async () => {
     if (!currentUserId) {
       if (onJoinClick) onJoinClick();
@@ -1175,6 +1328,7 @@ const Profile: React.FC<ProfileProps> = ({ userId: propsUserId, onBack, onNaviga
       const filterPosts = (posts: PostData[]) => posts.filter(post => post.id !== postId);
       
       setPosts(filterPosts);
+      setPostsCount(prev => (prev !== null ? Math.max(0, prev - 1) : null));
       setReactionPosts(prev => ({
         respected: filterPosts(prev.respected),
         rejected: filterPosts(prev.rejected),
@@ -1234,7 +1388,7 @@ const Profile: React.FC<ProfileProps> = ({ userId: propsUserId, onBack, onNaviga
       case 'saved':
         return savedPosts.length;
       default:
-        return posts.length;
+        return postsCount !== null ? postsCount : posts.length;
     }
   };
 
@@ -2019,21 +2173,35 @@ const Profile: React.FC<ProfileProps> = ({ userId: propsUserId, onBack, onNaviga
                 </div>
               )
             ) : (getCurrentPosts() as any[]).length > 0 ? (
-              (getCurrentPosts() as any[]).map((post: any) => (
-                <PostCard
-                  key={post.id}
-                  post={post as PostData}
-                  currentUserId={currentUserId || undefined}
-                  onSave={handleSave}
-                  onReport={handleReport}
-                  onEdit={handleEdit}
-                  onDelete={handleDelete}
-                  onReact={handleReact}
-                  onProfileClick={handleProfileClick}
-                  onShowEditHistory={handleShowEditHistory}
-                  onViewReflections={(p: any) => setViewReflectionsPost(p)}
-                />
-              ))
+              <>
+                {(getCurrentPosts() as any[]).map((post: any) => (
+                  <PostCard
+                    key={post.id}
+                    post={post as PostData}
+                    currentUserId={currentUserId || undefined}
+                    onSave={handleSave}
+                    onReport={handleReport}
+                    onEdit={handleEdit}
+                    onDelete={handleDelete}
+                    onReact={handleReact}
+                    onProfileClick={handleProfileClick}
+                    onShowEditHistory={handleShowEditHistory}
+                    onViewReflections={(p: any) => setViewReflectionsPost(p)}
+                  />
+                ))}
+
+                {/* Infinite Scroll Sentinel and Loading Indicator */}
+                {activeTab === 'posts' && (
+                  <div ref={sentinelRef} className="py-6 flex justify-center items-center">
+                    {isLoadingMorePosts && (
+                      <div className="flex items-center space-x-2.5 px-4 py-2 bg-slate-800/80 border border-slate-700/60 rounded-full shadow-lg backdrop-blur-sm">
+                        <Loader2 className="w-4 h-4 text-orange-400 animate-spin" />
+                        <span className="text-slate-300 text-sm font-medium">Loading more posts...</span>
+                      </div>
+                    )}
+                  </div>
+                )}
+              </>
             ) : (
               <div className="text-center py-16">
                 <div className="w-20 h-20 mx-auto mb-6 bg-gradient-to-br from-slate-600 to-slate-700 rounded-2xl flex items-center justify-center shadow-lg">
