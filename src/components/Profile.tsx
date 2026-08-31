@@ -229,7 +229,7 @@ const Profile: React.FC<ProfileProps> = ({ userId: propsUserId, onBack, onNaviga
 
   const loadPosts = React.useCallback(async (targetUserId: string, loggedInUserId?: string | null) => {
     try {
-      const query = supabase
+      let query = supabase
         .from('posts')
         .select(`
           *,
@@ -245,8 +245,12 @@ const Profile: React.FC<ProfileProps> = ({ userId: propsUserId, onBack, onNaviga
             profile_type
           )
         `, { count: 'exact' })
-        .eq('author_id', targetUserId)
-        .eq('is_anonymous', false);
+        .eq('author_id', targetUserId);
+
+      // Allow authors to see their own anonymous posts on their own profile; hide on public view
+      if (loggedInUserId !== targetUserId) {
+        query = query.eq('is_anonymous', false);
+      }
 
       const effectiveUserId = loggedInUserId;
       const moderationFilter = effectiveUserId 
@@ -321,7 +325,7 @@ const Profile: React.FC<ProfileProps> = ({ userId: propsUserId, onBack, onNaviga
       const from = posts.length;
       const to = from + POSTS_PAGE_SIZE - 1;
 
-      const query = supabase
+      let query = supabase
         .from('posts')
         .select(`
           *,
@@ -337,8 +341,12 @@ const Profile: React.FC<ProfileProps> = ({ userId: propsUserId, onBack, onNaviga
             profile_type
           )
         `, { count: 'exact' })
-        .eq('author_id', targetUserId)
-        .eq('is_anonymous', false);
+        .eq('author_id', targetUserId);
+
+      // Allow authors to see their own anonymous posts on their own profile; hide on public view
+      if (currentUserId !== targetUserId) {
+        query = query.eq('is_anonymous', false);
+      }
 
       const effectiveUserId = currentUserId;
       const moderationFilter = effectiveUserId 

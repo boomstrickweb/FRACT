@@ -1,5 +1,5 @@
 import React, { useState, useRef, useEffect } from 'react';
-import { MoreHorizontal, Heart, X, Eye, Bookmark, Flag, Edit3, Trash2, Play, Pause, Volume2, MessageSquare, Repeat2, Clock, Lightbulb, HelpCircle, FlaskConical, User, Link2, AlertTriangle, Shield, Bot, Eye as EyeIcon, ShieldAlert, Send, Share2, Sparkles, Cake } from 'lucide-react';
+import { MoreHorizontal, Heart, X, Eye, Bookmark, Flag, Edit3, Trash2, Play, Pause, Volume2, MessageSquare, Repeat2, Clock, Lightbulb, HelpCircle, FlaskConical, User, Link2, AlertTriangle, Shield, Bot, Eye as EyeIcon, ShieldAlert, Send, Share2, Sparkles, Cake, Newspaper, Star, ExternalLink, Globe, Check, ChevronDown, ChevronUp } from 'lucide-react';
 import { getCampaignIcon } from '../lib/campaignIcons';
 import ManualReview from './ManualReview';
 import { supabase, getCDNUrl, wrapMediaUrl } from '../lib/supabase';
@@ -138,11 +138,17 @@ const PostCard: React.FC<PostCardProps> = React.memo(({
     observe_count: 0
   });
   const [showSources, setShowSources] = useState(false);
+  const [userRating, setUserRating] = useState<number | null>(null);
+  const [hoverRating, setHoverRating] = useState<number | null>(null);
+  const [isRatingLoading, setIsRatingLoading] = useState(false);
+  const [ratingMessage, setRatingMessage] = useState<string | null>(null);
+  const [isSourcesExpanded, setIsSourcesExpanded] = useState(true);
   
   const audioRef = useRef<HTMLAudioElement | null>(null);
   const cardRef = useRef<HTMLDivElement | null>(null);
 
   const isOwnPost = currentUserId === post.author_id;
+  const isMediaPost = !post.is_anonymous && (post.author?.profile_type === 'media' || !!post.source_type || Boolean(post.sources && post.sources.length > 0));
 
   const checkIsAdmin = React.useCallback(async () => {
     if (!currentUserId) return;
@@ -289,6 +295,68 @@ const PostCard: React.FC<PostCardProps> = React.memo(({
     }
   }, [currentUserId, isOwnPost, post.id]);
 
+  const loadUserRating = React.useCallback(async () => {
+    if (!currentUserId || !isMediaPost) return;
+
+    try {
+      if (!import.meta.env.VITE_SUPABASE_URL || !import.meta.env.VITE_SUPABASE_ANON_KEY) {
+        return;
+      }
+
+      const { data, error } = await supabase
+        .from('post_ratings')
+        .select('rating')
+        .eq('post_id', post.id)
+        .eq('user_id', currentUserId)
+        .maybeSingle();
+
+      if (!error && data) {
+        setUserRating(data.rating);
+      }
+    } catch (err) {
+      console.error('Error loading user rating:', err);
+    }
+  }, [currentUserId, isMediaPost, post.id]);
+
+  const handleRatePost = async (ratingVal: number) => {
+    if (!currentUserId) {
+      setRatingMessage('Sign in to rate');
+      setTimeout(() => setRatingMessage(null), 3000);
+      return;
+    }
+
+    if (isOwnPost) {
+      setRatingMessage('Authors cannot rate their own posts');
+      setTimeout(() => setRatingMessage(null), 3000);
+      return;
+    }
+
+    if (isRatingLoading) return;
+
+    setIsRatingLoading(true);
+    try {
+      const { error } = await supabase
+        .from('post_ratings')
+        .upsert({
+          post_id: post.id,
+          user_id: currentUserId,
+          rating: ratingVal,
+          updated_at: new Date().toISOString()
+        }, { onConflict: 'post_id,user_id' });
+
+      if (error) throw error;
+      setUserRating(ratingVal);
+      setRatingMessage(`Rated ${ratingVal} star${ratingVal > 1 ? 's' : ''}`);
+      setTimeout(() => setRatingMessage(null), 3000);
+    } catch (err) {
+      console.error('Error submitting rating:', err);
+      setRatingMessage('Failed to save rating');
+      setTimeout(() => setRatingMessage(null), 3000);
+    } finally {
+      setIsRatingLoading(false);
+    }
+  };
+
   const recordView = React.useCallback(async () => {
     if (!currentUserId || hasViewed) return;
 
@@ -330,7 +398,12 @@ const PostCard: React.FC<PostCardProps> = React.memo(({
     if (isOwnPost) {
       loadReactionCounts();
     }
-  }, [post.id, isOwnPost, loadReflectionCount, checkEditHistory, loadReactionCounts, checkAiAppealStatus, post.ai_flagged]);
+
+    // Load user rating for media posts
+    if (isMediaPost && currentUserId) {
+      loadUserRating();
+    }
+  }, [post.id, isOwnPost, isMediaPost, currentUserId, loadReflectionCount, checkEditHistory, loadReactionCounts, checkAiAppealStatus, loadUserRating, post.ai_flagged]);
 
   useEffect(() => {
     // Record view when post comes into view
@@ -568,6 +641,198 @@ const PostCard: React.FC<PostCardProps> = React.memo(({
     );
   };
 
+
+  const renderMediaAttribution = () => {
+    if (!isMediaPost) return null;
+
+    const hasSourcesList = post.source_type === 'sources' || Boolean(post.sources && post.sources.length > 0);
+    const hasContentType = post.source_type && post.source_type !== 'sources';
+
+    if (!hasSourcesList && !hasContentType && post.author?.profile_type !== 'media') return null;
+
+    // Determine the exact attribution category
+    const isSources = hasSourcesList;
+    const isOriginalReporting = post.source_type === 'original_reporting';
+    const isOpinion = post.source_type === 'opinion_commentary';
+    const isPublicKnowledge = post.source_type === 'public_knowledge';
+
+    return (
+      <div className="mt-3 sm:mt-4 p-3 sm:p-4 bg-slate-800/40 border border-slate-700/60 rounded-xl sm:rounded-2xl backdrop-blur-sm">
+        {/* Header with Type & Rating */}
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 mb-3 pb-3 border-b border-slate-700/40">
+          <div className="flex items-center space-x-2 flex-wrap gap-y-1.5">
+            <span className="inline-flex items-center space-x-1 px-2.5 py-0.5 rounded-full text-xs font-semibold bg-orange-500/15 text-orange-400 border border-orange-500/30">
+              <Newspaper className="w-3.5 h-3.5 text-orange-400" />
+              <span>Media</span>
+            </span>
+
+            {/* Exactly one of the 4 attribution types */}
+            {isSources && (
+              <span className="inline-flex items-center space-x-1 px-2.5 py-0.5 rounded-full text-xs font-medium bg-amber-500/15 text-amber-400 border border-amber-500/30">
+                <Link2 className="w-3.5 h-3.5" />
+                <span>Referenced Sources {post.sources?.length ? `(${post.sources.length})` : ''}</span>
+              </span>
+            )}
+            {isOriginalReporting && (
+              <span className="inline-flex items-center space-x-1 px-2.5 py-0.5 rounded-full text-xs font-medium bg-green-500/15 text-green-400 border border-green-500/30">
+                <Check className="w-3.5 h-3.5" />
+                <span>Original Reporting</span>
+              </span>
+            )}
+            {isOpinion && (
+              <span className="inline-flex items-center space-x-1 px-2.5 py-0.5 rounded-full text-xs font-medium bg-blue-500/15 text-blue-400 border border-blue-500/30">
+                <Lightbulb className="w-3.5 h-3.5" />
+                <span>Opinion / Commentary</span>
+              </span>
+            )}
+            {isPublicKnowledge && (
+              <span className="inline-flex items-center space-x-1 px-2.5 py-0.5 rounded-full text-xs font-medium bg-purple-500/15 text-purple-400 border border-purple-500/30">
+                <Globe className="w-3.5 h-3.5" />
+                <span>Public Knowledge</span>
+              </span>
+            )}
+          </div>
+
+          {/* Star Rating UI */}
+          <div className="flex items-center space-x-2 flex-shrink-0">
+            <span className="text-slate-400 text-xs font-medium">Rate:</span>
+            <div className="flex items-center space-x-0.5" role="group" aria-label="Rate this post">
+              {[1, 2, 3, 4, 5].map((star) => (
+                <button
+                  key={star}
+                  type="button"
+                  disabled={isOwnPost || isRatingLoading}
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    handleRatePost(star);
+                  }}
+                  onMouseEnter={() => !isOwnPost && setHoverRating(star)}
+                  onMouseLeave={() => setHoverRating(null)}
+                  className={`p-0.5 transition-all duration-150 ${
+                    !isOwnPost ? 'hover:scale-125 cursor-pointer text-slate-500 hover:text-amber-400' : 'cursor-default opacity-80'
+                  }`}
+                  title={isOwnPost ? 'Authors cannot rate their own posts' : `Rate ${star} star${star > 1 ? 's' : ''}`}
+                >
+                  <Star
+                    className={`w-4 h-4 transition-colors ${
+                      (hoverRating !== null ? star <= hoverRating : userRating !== null && star <= userRating)
+                        ? 'fill-amber-400 text-amber-400'
+                        : 'text-slate-600'
+                    }`}
+                  />
+                </button>
+              ))}
+            </div>
+            {userRating && (
+              <span className="text-xs font-semibold text-amber-400">
+                {userRating}/5
+              </span>
+            )}
+            {ratingMessage && (
+              <span className="text-[11px] text-amber-300 animate-fade-in">
+                {ratingMessage}
+              </span>
+            )}
+          </div>
+        </div>
+
+        {/* Content Type Explanations */}
+        {isOriginalReporting && (
+          <div className="text-xs sm:text-sm text-slate-300">
+            <p>This coverage is based on original reporting or firsthand information.</p>
+            {post.source_description && (
+              <div className="mt-2 text-xs text-slate-300 italic bg-slate-900/50 p-2.5 rounded-lg border border-slate-700/50">
+                "{post.source_description}"
+              </div>
+            )}
+          </div>
+        )}
+
+        {isOpinion && (
+          <div className="text-xs sm:text-sm text-slate-300">
+            <p>This post represents editorial commentary, opinion, or analysis rather than sourced factual reporting.</p>
+            {post.source_description && (
+              <div className="mt-2 text-xs text-slate-300 italic bg-slate-900/50 p-2.5 rounded-lg border border-slate-700/50">
+                "{post.source_description}"
+              </div>
+            )}
+          </div>
+        )}
+
+        {isPublicKnowledge && (
+          <div className="text-xs sm:text-sm text-slate-300">
+            <p>This information reflects widely known public knowledge and does not rely on a single source.</p>
+            {post.source_description && (
+              <div className="mt-2 text-xs text-slate-300 italic bg-slate-900/50 p-2.5 rounded-lg border border-slate-700/50">
+                "{post.source_description}"
+              </div>
+            )}
+          </div>
+        )}
+
+        {/* Referenced Sources List */}
+        {isSources && post.sources && post.sources.length > 0 && (
+          <div>
+            <div className="flex items-center justify-between mb-2">
+              <div className="flex items-center space-x-1.5 text-xs font-semibold text-slate-300 uppercase tracking-wider">
+                <Link2 className="w-3.5 h-3.5 text-orange-400" />
+                <span>Referenced Sources ({post.sources.length})</span>
+              </div>
+              {post.sources.length > 2 && (
+                <button
+                  type="button"
+                  onClick={() => setIsSourcesExpanded(!isSourcesExpanded)}
+                  className="text-[11px] text-orange-400 hover:text-orange-300 font-medium flex items-center space-x-1"
+                >
+                  <span>{isSourcesExpanded ? 'Show less' : 'Show all'}</span>
+                  {isSourcesExpanded ? <ChevronUp className="w-3 h-3" /> : <ChevronDown className="w-3 h-3" />}
+                </button>
+              )}
+            </div>
+
+            <div className="space-y-1.5">
+              {(isSourcesExpanded ? post.sources : post.sources.slice(0, 2)).map((source, idx) => {
+                const isUrl = source.startsWith('http://') || source.startsWith('https://');
+                let displayUrl = source;
+                if (isUrl) {
+                  try {
+                    const parsed = new URL(source);
+                    displayUrl = parsed.hostname + (parsed.pathname !== '/' ? parsed.pathname : '');
+                  } catch {
+                    displayUrl = source;
+                  }
+                }
+
+                return (
+                  <div
+                    key={idx}
+                    className="flex items-start space-x-2 bg-slate-900/50 hover:bg-slate-900/75 p-2 rounded-lg border border-slate-700/40 text-xs transition-colors"
+                  >
+                    <span className="text-orange-400 font-bold min-w-[16px] text-center">
+                      {idx + 1}.
+                    </span>
+                    {isUrl ? (
+                      <a
+                        href={source}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="text-orange-400 hover:text-orange-300 underline break-all flex items-center gap-1.5 flex-1 group"
+                      >
+                        <span className="truncate">{displayUrl}</span>
+                        <ExternalLink className="w-3 h-3 flex-shrink-0 opacity-70 group-hover:opacity-100" />
+                      </a>
+                    ) : (
+                      <span className="text-slate-300 break-all flex-1">{source}</span>
+                    )}
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+        )}
+      </div>
+    );
+  };
 
   const renderPostContent = () => {
     // If explicit content OR Medium moderation (score 2) and not shown yet, show blurred version
@@ -989,6 +1254,12 @@ const PostCard: React.FC<PostCardProps> = React.memo(({
                   size="sm"
                 />
               )}
+              {!post.is_anonymous && post.author?.profile_type === 'media' && (
+                <span className="inline-flex items-center space-x-1 px-1.5 py-0.5 rounded text-[10px] font-semibold bg-orange-500/15 text-orange-400 border border-orange-500/25">
+                  <Newspaper className="w-2.5 h-2.5 text-orange-400" />
+                  <span>Media</span>
+                </span>
+              )}
               {!post.is_anonymous && post.author?.username && (
                 <span className="text-slate-400 text-xs sm:text-sm truncate">
                   @{post.author.username}
@@ -1163,6 +1434,9 @@ const PostCard: React.FC<PostCardProps> = React.memo(({
       <div className="mb-3 sm:mb-4">
         {renderPostContent()}
 
+        {/* Media Profile Sources & Attribution */}
+        {renderMediaAttribution()}
+
         {/* AI Appeal Section for Post Owner */}
         {isOwnPost && post.ai_flagged && !hasAppealedAi && (
           <div className="mt-4 p-4 bg-purple-500/5 border border-purple-500/20 rounded-2xl">
@@ -1291,14 +1565,44 @@ const PostCard: React.FC<PostCardProps> = React.memo(({
               <span className="text-xs sm:text-sm font-medium hidden sm:inline">Save</span>
             </button>
 
-            {/* View Sources - for media profile posts */}
-            {(post.source_type || (post.sources && post.sources.length > 0)) && (
+            {/* View Sources / Attribution - for media profile posts */}
+            {(post.source_type || (post.sources && post.sources.length > 0) || post.author?.profile_type === 'media') && (
               <button
                 onClick={() => setShowSources(true)}
-                className="flex items-center space-x-1 sm:space-x-2 px-2 sm:px-3 py-1 sm:py-2 rounded-lg sm:rounded-xl transition-all duration-300 flex-shrink-0 text-orange-400 hover:text-orange-300 hover:bg-orange-500/10"
+                className={`flex items-center space-x-1 sm:space-x-2 px-2 sm:px-3 py-1 sm:py-2 rounded-lg sm:rounded-xl transition-all duration-300 flex-shrink-0 ${
+                  post.source_type === 'original_reporting'
+                    ? 'text-green-400 hover:text-green-300 hover:bg-green-500/10'
+                    : post.source_type === 'opinion_commentary'
+                    ? 'text-blue-400 hover:text-blue-300 hover:bg-blue-500/10'
+                    : post.source_type === 'public_knowledge'
+                    ? 'text-purple-400 hover:text-purple-300 hover:bg-purple-500/10'
+                    : 'text-orange-400 hover:text-orange-300 hover:bg-orange-500/10'
+                }`}
+                title="View media attribution details"
               >
-                <Link2 className="w-4 h-4 sm:w-5 sm:h-5" />
-                <span className="text-xs sm:text-sm font-medium hidden sm:inline">Sources</span>
+                {post.source_type === 'original_reporting' ? (
+                  <>
+                    <Check className="w-4 h-4 sm:w-5 sm:h-5 text-green-400" />
+                    <span className="text-xs sm:text-sm font-medium hidden sm:inline">Original Reporting</span>
+                  </>
+                ) : post.source_type === 'opinion_commentary' ? (
+                  <>
+                    <Lightbulb className="w-4 h-4 sm:w-5 sm:h-5 text-blue-400" />
+                    <span className="text-xs sm:text-sm font-medium hidden sm:inline">Opinion</span>
+                  </>
+                ) : post.source_type === 'public_knowledge' ? (
+                  <>
+                    <Globe className="w-4 h-4 sm:w-5 sm:h-5 text-purple-400" />
+                    <span className="text-xs sm:text-sm font-medium hidden sm:inline">Public Knowledge</span>
+                  </>
+                ) : (
+                  <>
+                    <Link2 className="w-4 h-4 sm:w-5 sm:h-5 text-orange-400" />
+                    <span className="text-xs sm:text-sm font-medium hidden sm:inline">
+                      {post.sources && post.sources.length > 0 ? `Sources (${post.sources.length})` : 'Sources'}
+                    </span>
+                  </>
+                )}
               </button>
             )}
           </div>
@@ -1490,6 +1794,47 @@ const PostCard: React.FC<PostCardProps> = React.memo(({
                 </div>
               )}
             </div>
+
+            {/* Star Rating in Modal */}
+            {isMediaPost && (
+              <div className="px-6 py-3 bg-slate-900/40 border-t border-slate-700/60 flex items-center justify-between">
+                <span className="text-slate-300 text-sm font-medium">Rate this coverage:</span>
+                <div className="flex items-center space-x-2">
+                  <div className="flex items-center space-x-1">
+                    {[1, 2, 3, 4, 5].map((star) => (
+                      <button
+                        key={star}
+                        type="button"
+                        disabled={isOwnPost || isRatingLoading}
+                        onClick={() => handleRatePost(star)}
+                        onMouseEnter={() => !isOwnPost && setHoverRating(star)}
+                        onMouseLeave={() => setHoverRating(null)}
+                        className={`p-1 transition-transform ${!isOwnPost ? 'hover:scale-125 cursor-pointer' : 'cursor-default opacity-80'}`}
+                        title={isOwnPost ? 'Authors cannot rate their own posts' : `Rate ${star} star${star > 1 ? 's' : ''}`}
+                      >
+                        <Star
+                          className={`w-5 h-5 transition-colors ${
+                            (hoverRating !== null ? star <= hoverRating : userRating !== null && star <= userRating)
+                              ? 'fill-amber-400 text-amber-400'
+                              : 'text-slate-600 hover:text-amber-300'
+                          }`}
+                        />
+                      </button>
+                    ))}
+                  </div>
+                  {userRating && (
+                    <span className="text-sm font-bold text-amber-400">
+                      {userRating}/5
+                    </span>
+                  )}
+                  {ratingMessage && (
+                    <span className="text-xs text-amber-300 ml-2">
+                      {ratingMessage}
+                    </span>
+                  )}
+                </div>
+              </div>
+            )}
 
             <div className="bg-slate-900/50 px-6 py-4 flex justify-end">
               <button

@@ -87,7 +87,8 @@ const CampaignPage: React.FC<CampaignPageProps> = ({ campaign: initialCampaign, 
             profile_pic_url,
             is_verified,
             verification_type,
-            verification_reason
+            verification_reason,
+            profile_type
           )
         `)
         .eq('campaign_id', targetId)

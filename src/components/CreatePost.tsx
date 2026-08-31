@@ -523,6 +523,16 @@ const CreatePost: React.FC<CreatePostProps> = ({ onBack, onPostCreated, onCreate
 
   const canSubmit = () => {
     if (replyToPost) return replyContent.trim().length > 0;
+
+    // For media profiles, source selection is required
+    if (isMediaProfile) {
+      if (!sourceType) return false;
+      if (sourceType === 'sources') {
+        const filledSources = sources.filter(s => s.trim().length > 0);
+        if (filledSources.length < 3 || filledSources.length > 5) return false;
+      }
+    }
+
     if (postType === 'text') return content.trim().length > 0;
     if (postType === 'quote') return content.trim().length > 0 && quoteSignature.trim().length > 0;
     if (postType === 'voice') return audioBlob !== null;

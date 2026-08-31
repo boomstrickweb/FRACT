@@ -352,7 +352,8 @@ const Search: React.FC<SearchProps> = ({ onBack, onProfileClick, onJoinClick }) 
             profile_pic_url,
             is_verified,
             verification_type,
-            verification_reason
+            verification_reason,
+            profile_type
           )
         `)
         .eq('is_anonymous', false)

@@ -37,11 +37,17 @@ interface PostData {
   classification_confidence?: number | null;
   classification_data?: Record<string, unknown> | null;
   ai_flagged?: 'ai_assisted' | 'ai_generated' | null;
+  sources?: string[];
+  source_type?: string;
+  source_description?: string;
   author?: {
     id: string;
     name: string;
     username: string;
     profile_pic_url?: string;
+    is_verified?: boolean;
+    verification_type?: string;
+    verification_reason?: string;
     profile_type?: string;
   };
   is_saved?: boolean;
@@ -290,6 +296,9 @@ const Feed = () => {
           created_at,
           ai_flagged,
           campaign_id,
+          sources,
+          source_type,
+          source_description,
           campaign:campaigns(id, title, category),
           author:profiles!posts_author_id_fkey (
             id,
@@ -298,10 +307,10 @@ const Feed = () => {
             profile_pic_url,
             is_verified,
             verification_type,
-            verification_reason
+            verification_reason,
+            profile_type
           )
-        `)
-        .eq('is_anonymous', false);
+        `);
 
       // Apply moderation filter
       const effectiveUserId = user?.id;

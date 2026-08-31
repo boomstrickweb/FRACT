@@ -18,18 +18,24 @@ interface PostData {
   is_anonymous: boolean;
   view_count: number;
   created_at: string;
-  updated_at: string;
+  updated_at?: string;
   moderation_reason?: string;
   moderation_score?: number | null;
   classification_label?: string | null;
   classification_confidence?: number | null;
   classification_data?: Record<string, unknown> | null;
   ai_flagged?: 'ai_assisted' | 'ai_generated' | null;
+  sources?: string[];
+  source_type?: string;
+  source_description?: string;
   author?: {
     id: string;
     name: string;
     username: string;
     profile_pic_url?: string;
+    is_verified?: boolean;
+    verification_type?: string;
+    verification_reason?: string;
     profile_type?: string;
   };
   is_saved?: boolean;
@@ -118,7 +124,10 @@ const Preview: React.FC = () => {
           created_at,
           moderation_reason,
           ai_flagged,
-          author:profiles(id, name, username, profile_pic_url, is_verified, verification_type, verification_reason)
+          sources,
+          source_type,
+          source_description,
+          author:profiles(id, name, username, profile_pic_url, is_verified, verification_type, verification_reason, profile_type)
         `)
         .eq('is_explicit', false)
         .eq('moderation_reason', 'NONE')
@@ -150,7 +159,7 @@ const Preview: React.FC = () => {
           is_explicit,
           created_at,
           ai_flagged,
-          author:profiles(id, name, username, profile_pic_url, is_verified, verification_type, verification_reason),
+          author:profiles(id, name, username, profile_pic_url, is_verified, verification_type, verification_reason, profile_type),
           chapters:series_chapters(id, chapter_number, title, content)
         `)
         .eq('is_explicit', false)
