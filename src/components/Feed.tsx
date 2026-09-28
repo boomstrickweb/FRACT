@@ -492,6 +492,83 @@ const Feed = () => {
     }
   }, [activeMainTab, loadPosts, loadSoulmatePosts]);
 
+  const loadMatchingProfiles = React.useCallback(async (userBeliefs?: string | null, userField?: string | null, userId?: string | null) => {
+    try {
+      const DEFAULT_BELIEFS = ['Analyst', 'Libertarian', 'Humanist', 'Radical', 'Stoic', 'Debater'];
+      const DEFAULT_FIELDS = ['Science/Tech', 'Philosophy/Psychology', 'Politics', 'AI/Future Tech', 'Art/Culture'];
+
+      // Decide type: 'beliefs' or 'field' randomly
+      const chosenType: 'beliefs' | 'field' = Math.random() < 0.5 ? 'beliefs' : 'field';
+      
+      let chosenValue = chosenType === 'beliefs' ? userBeliefs : userField;
+      if (!chosenValue) {
+        // Fallback to random popular category if user hasn't set one yet
+        const defaults = chosenType === 'beliefs' ? DEFAULT_BELIEFS : DEFAULT_FIELDS;
+        chosenValue = defaults[Math.floor(Math.random() * defaults.length)];
+      }
+
+      setMatchingType(chosenType);
+      setMatchingValue(chosenValue);
+
+      // Query profiles with matching belief or field
+      let query = supabase
+        .from('profiles')
+        .select('id, name, username, bio, profile_pic_url, beliefs, field, profile_type, is_verified, verification_type, verification_reason, trust_score')
+        .eq(chosenType, chosenValue)
+        .not('is_banned', 'eq', true)
+        .not('is_deactivated', 'eq', true)
+        .limit(5);
+
+      if (userId) {
+        query = query.neq('id', userId);
+      }
+
+      const [profilesRes, followsRes] = await Promise.all([
+        query,
+        userId
+          ? supabase.from('follows').select('following_id').eq('follower_id', userId)
+          : Promise.resolve({ data: [] })
+      ]);
+
+      let finalProfiles = profilesRes.data || [];
+
+      // If no profiles found for exact value, get any profiles that have this type filled
+      if (finalProfiles.length === 0) {
+        let fallbackQuery = supabase
+          .from('profiles')
+          .select('id, name, username, bio, profile_pic_url, beliefs, field, profile_type, is_verified, verification_type, verification_reason, trust_score')
+          .not(chosenType, 'is', null)
+          .neq(chosenType, '')
+          .not('is_banned', 'eq', true)
+          .not('is_deactivated', 'eq', true)
+          .limit(5);
+
+        if (userId) {
+          fallbackQuery = fallbackQuery.neq('id', userId);
+        }
+
+        const fallbackRes = await fallbackQuery;
+        if (fallbackRes.data && fallbackRes.data.length > 0) {
+          finalProfiles = fallbackRes.data;
+          const firstVal = (fallbackRes.data[0] as any)[chosenType];
+          if (firstVal) {
+            setMatchingValue(firstVal);
+          }
+        }
+      }
+
+      if (finalProfiles.length > 0) {
+        const fSet = new Set<string>((followsRes.data || []).map((f: any) => f.following_id));
+        setMatchingFollowingIds(fSet);
+        setMatchingProfiles(finalProfiles);
+      } else {
+        setMatchingProfiles([]);
+      }
+    } catch (err) {
+      console.error('Error loading matching profiles in feed:', err);
+    }
+  }, []);
+
   const loadCurrentUser = React.useCallback(async () => {
     try {
       const { data: { user } } = await supabase.auth.getUser();
@@ -512,54 +589,7 @@ const Feed = () => {
     } catch (error) {
       console.error('Error loading current user:', error);
     }
-  }, []);
-
-  const loadMatchingProfiles = React.useCallback(async (userBeliefs?: string | null, userField?: string | null, userId?: string | null) => {
-    try {
-      if (!userId) return;
-      const availableTypes: ('beliefs' | 'field')[] = [];
-      if (userBeliefs) availableTypes.push('beliefs');
-      if (userField) availableTypes.push('field');
-
-      if (availableTypes.length === 0) {
-        setMatchingProfiles([]);
-        setMatchingType(null);
-        return;
-      }
-
-      // Randomly choose between beliefs and field
-      const chosenType = availableTypes[Math.floor(Math.random() * availableTypes.length)];
-      const chosenValue = chosenType === 'beliefs' ? userBeliefs! : userField!;
-
-      setMatchingType(chosenType);
-      setMatchingValue(chosenValue);
-
-      const [profilesRes, followsRes] = await Promise.all([
-        supabase
-          .from('profiles')
-          .select('id, name, username, bio, profile_pic_url, beliefs, field, profile_type, is_verified, verification_type, verification_reason, trust_score')
-          .eq(chosenType, chosenValue)
-          .neq('id', userId)
-          .not('is_banned', 'eq', true)
-          .not('is_deactivated', 'eq', true)
-          .limit(5),
-        supabase
-          .from('follows')
-          .select('following_id')
-          .eq('follower_id', userId)
-      ]);
-
-      if (profilesRes.data && profilesRes.data.length > 0) {
-        const fSet = new Set<string>((followsRes.data || []).map(f => f.following_id));
-        setMatchingFollowingIds(fSet);
-        setMatchingProfiles(profilesRes.data);
-      } else {
-        setMatchingProfiles([]);
-      }
-    } catch (err) {
-      console.error('Error loading matching profiles in feed:', err);
-    }
-  }, []);
+  }, [loadMatchingProfiles]);
 
   const handleToggleMatchingFollow = async (profileId: string) => {
     if (!currentUserId) return;
@@ -688,6 +718,9 @@ const Feed = () => {
         } else {
           loadPosts();
           loadSeries();
+          if (activeTab === 'discover') {
+            loadCurrentUser();
+          }
         }
       } else {
         await loadSoulmatePosts();
@@ -1422,125 +1455,126 @@ const Feed = () => {
               ...seriesList.map(s => ({ type: 'series' as const, data: s, created_at: s.created_at })),
             ].sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
 
-            return (
-              <div className="space-y-6">
-                {/* Beliefs / Field of Interest Discovery Carousel */}
-                {matchingType && matchingProfiles.length > 0 && (
-                  <div className="bg-slate-800/40 border border-slate-700/60 rounded-2xl sm:rounded-3xl p-4 sm:p-5 backdrop-blur-sm">
-                    <div className="flex items-center justify-between mb-3.5">
-                      <div className="flex items-center space-x-2">
-                        {matchingType === 'beliefs' ? (
-                          <div className="w-7 h-7 rounded-lg bg-indigo-500/20 text-indigo-400 flex items-center justify-center">
-                            <Sparkles className="w-4 h-4" />
-                          </div>
-                        ) : (
-                          <div className="w-7 h-7 rounded-lg bg-cyan-500/20 text-cyan-400 flex items-center justify-center">
-                            <Compass className="w-4 h-4" />
-                          </div>
-                        )}
-                        <div>
-                          <h3 className="text-sm font-semibold text-slate-100 flex items-center gap-1.5">
-                            {matchingType === 'beliefs' ? 'Matching Beliefs' : 'In Your Field'}
-                            <span className="text-xs font-normal text-slate-400">({matchingValue})</span>
-                          </h3>
-                        </div>
+            // Carousel element
+            const matchingWidget = matchingType && matchingProfiles.length > 0 ? (
+              <div key="matching-discovery-carousel" className="bg-slate-800/40 border border-slate-700/60 rounded-2xl sm:rounded-3xl p-4 sm:p-5 backdrop-blur-sm my-2">
+                <div className="flex items-center justify-between mb-3.5">
+                  <div className="flex items-center space-x-2">
+                    {matchingType === 'beliefs' ? (
+                      <div className="w-7 h-7 rounded-lg bg-indigo-500/20 text-indigo-400 flex items-center justify-center">
+                        <Sparkles className="w-4 h-4" />
                       </div>
-
-                      <button
-                        onClick={() => navigate(matchingType === 'beliefs' ? '/findbfs' : '/findfoi')}
-                        className="text-xs font-semibold text-indigo-400 hover:text-indigo-300 flex items-center gap-1 transition-colors group"
-                      >
-                        <span>See All</span>
-                        <ChevronRight className="w-3.5 h-3.5 group-hover:translate-x-0.5 transition-transform" />
-                      </button>
-                    </div>
-
-                    {/* Swipeable profiles list */}
-                    <div className="flex overflow-x-auto gap-3.5 pb-1 scrollbar-thin scrollbar-thumb-slate-700 scrollbar-track-transparent">
-                      {matchingProfiles.map((p) => {
-                        const isFollowing = matchingFollowingIds.has(p.id);
-                        const isLoadingFollow = matchingFollowingLoading[p.id];
-                        return (
-                          <div
-                            key={p.id}
-                            className="flex-shrink-0 w-44 bg-slate-900/60 border border-slate-700/50 hover:border-slate-600/70 rounded-xl p-3 flex flex-col justify-between transition-all"
-                          >
-                            <div>
-                              <div
-                                onClick={() => navigate(`/u/${p.id}`)}
-                                className="cursor-pointer group flex flex-col items-center text-center"
-                              >
-                                <div className="relative mb-2">
-                                  <img
-                                    src={p.profile_pic_url || `https://ui-avatars.com/api/?name=${encodeURIComponent(p.name || 'User')}&background=1e293b&color=cbd5e1`}
-                                    alt={p.name}
-                                    className="w-12 h-12 rounded-full object-cover border border-slate-600 group-hover:border-indigo-400 transition-colors"
-                                  />
-                                  {p.is_verified && (
-                                    <div className="absolute -bottom-1 -right-1 bg-slate-900 rounded-full p-0.5">
-                                      {p.verification_type === 'gold' ? (
-                                        <Award className="w-3.5 h-3.5 text-amber-400 fill-amber-400" />
-                                      ) : (
-                                        <Shield className="w-3.5 h-3.5 text-blue-400 fill-blue-400" />
-                                      )}
-                                    </div>
-                                  )}
-                                </div>
-                                <h4 className="text-xs font-semibold text-slate-100 truncate w-full group-hover:text-indigo-300 transition-colors">
-                                  {p.name}
-                                </h4>
-                                <p className="text-[11px] text-slate-400 truncate w-full mb-1.5">@{p.username}</p>
-                                {p.bio && (
-                                  <p className="text-[11px] text-slate-300 line-clamp-2 leading-tight mb-2">
-                                    {p.bio}
-                                  </p>
-                                )}
-                              </div>
-                            </div>
-
-                            <button
-                              onClick={() => handleToggleMatchingFollow(p.id)}
-                              disabled={isLoadingFollow}
-                              className={`w-full mt-2 py-1 px-2 rounded-lg text-xs font-semibold flex items-center justify-center space-x-1 transition-all ${
-                                isFollowing
-                                  ? 'bg-slate-800 text-slate-300 border border-slate-700 hover:bg-red-500/20 hover:text-red-300'
-                                  : 'bg-indigo-600 hover:bg-indigo-500 text-white'
-                              }`}
-                            >
-                              {isFollowing ? (
-                                <>
-                                  <UserCheck className="w-3 h-3" />
-                                  <span>Following</span>
-                                </>
-                              ) : (
-                                <>
-                                  <UserPlus className="w-3 h-3" />
-                                  <span>Follow</span>
-                                </>
-                              )}
-                            </button>
-                          </div>
-                        );
-                      })}
-
-                      {/* 'See All' Card */}
-                      <div
-                        onClick={() => navigate(matchingType === 'beliefs' ? '/findbfs' : '/findfoi')}
-                        className="flex-shrink-0 w-32 bg-slate-900/40 border border-dashed border-slate-700/70 hover:border-indigo-500/60 rounded-xl p-3 flex flex-col items-center justify-center text-center cursor-pointer group transition-all"
-                      >
-                        <div className="w-9 h-9 rounded-full bg-slate-800 flex items-center justify-center mb-2 group-hover:bg-indigo-600/20 group-hover:text-indigo-300 text-slate-400 transition-colors">
-                          <ChevronRight className="w-5 h-5 group-hover:translate-x-0.5 transition-transform" />
-                        </div>
-                        <span className="text-xs font-semibold text-slate-300 group-hover:text-indigo-300 transition-colors">
-                          See All
-                        </span>
-                        <span className="text-[10px] text-slate-500 mt-0.5">
-                          {matchingType === 'beliefs' ? 'Beliefs' : 'Interests'}
-                        </span>
+                    ) : (
+                      <div className="w-7 h-7 rounded-lg bg-cyan-500/20 text-cyan-400 flex items-center justify-center">
+                        <Compass className="w-4 h-4" />
                       </div>
+                    )}
+                    <div>
+                      <h3 className="text-sm font-semibold text-slate-100 flex items-center gap-1.5">
+                        {matchingType === 'beliefs' ? 'Matching Beliefs' : 'In Your Field'}
+                        <span className="text-xs font-normal text-slate-400">({matchingValue})</span>
+                      </h3>
                     </div>
                   </div>
-                )}
+
+                  <button
+                    onClick={() => navigate(matchingType === 'beliefs' ? '/findbfs' : '/findfoi')}
+                    className="text-xs font-semibold text-indigo-400 hover:text-indigo-300 flex items-center gap-1 transition-colors group"
+                  >
+                    <span>See All</span>
+                    <ChevronRight className="w-3.5 h-3.5 group-hover:translate-x-0.5 transition-transform" />
+                  </button>
+                </div>
+
+                {/* Swipeable profiles list */}
+                <div className="flex overflow-x-auto gap-3.5 pb-1 scrollbar-thin scrollbar-thumb-slate-700 scrollbar-track-transparent">
+                  {matchingProfiles.map((p) => {
+                    const isFollowing = matchingFollowingIds.has(p.id);
+                    const isLoadingFollow = matchingFollowingLoading[p.id];
+                    return (
+                      <div
+                        key={p.id}
+                        className="flex-shrink-0 w-44 bg-slate-900/60 border border-slate-700/50 hover:border-slate-600/70 rounded-xl p-3 flex flex-col justify-between transition-all"
+                      >
+                        <div>
+                          <div
+                            onClick={() => navigate(`/u/${p.id}`)}
+                            className="cursor-pointer group flex flex-col items-center text-center"
+                          >
+                            <div className="relative mb-2">
+                              <img
+                                src={p.profile_pic_url || `https://ui-avatars.com/api/?name=${encodeURIComponent(p.name || 'User')}&background=1e293b&color=cbd5e1`}
+                                alt={p.name}
+                                className="w-12 h-12 rounded-full object-cover border border-slate-600 group-hover:border-indigo-400 transition-colors"
+                              />
+                              {p.is_verified && (
+                                <div className="absolute -bottom-1 -right-1 bg-slate-900 rounded-full p-0.5">
+                                  {p.verification_type === 'gold' ? (
+                                    <Award className="w-3.5 h-3.5 text-amber-400 fill-amber-400" />
+                                  ) : (
+                                    <Shield className="w-3.5 h-3.5 text-blue-400 fill-blue-400" />
+                                  )}
+                                </div>
+                              )}
+                            </div>
+                            <h4 className="text-xs font-semibold text-slate-100 truncate w-full group-hover:text-indigo-300 transition-colors">
+                              {p.name}
+                            </h4>
+                            <p className="text-[11px] text-slate-400 truncate w-full mb-1.5">@{p.username}</p>
+                            {p.bio && (
+                              <p className="text-[11px] text-slate-300 line-clamp-2 leading-tight mb-2">
+                                {p.bio}
+                              </p>
+                            )}
+                          </div>
+                        </div>
+
+                        <button
+                          onClick={() => handleToggleMatchingFollow(p.id)}
+                          disabled={isLoadingFollow}
+                          className={`w-full mt-2 py-1 px-2 rounded-lg text-xs font-semibold flex items-center justify-center space-x-1 transition-all ${
+                            isFollowing
+                              ? 'bg-slate-800 text-slate-300 border border-slate-700 hover:bg-red-500/20 hover:text-red-300'
+                              : 'bg-indigo-600 hover:bg-indigo-500 text-white'
+                          }`}
+                        >
+                          {isFollowing ? (
+                            <>
+                              <UserCheck className="w-3 h-3" />
+                              <span>Following</span>
+                            </>
+                          ) : (
+                            <>
+                              <UserPlus className="w-3 h-3" />
+                              <span>Follow</span>
+                            </>
+                          )}
+                        </button>
+                      </div>
+                    );
+                  })}
+
+                  {/* 'See All' Card */}
+                  <div
+                    onClick={() => navigate(matchingType === 'beliefs' ? '/findbfs' : '/findfoi')}
+                    className="flex-shrink-0 w-32 bg-slate-900/40 border border-dashed border-slate-700/70 hover:border-indigo-500/60 rounded-xl p-3 flex flex-col items-center justify-center text-center cursor-pointer group transition-all"
+                  >
+                    <div className="w-9 h-9 rounded-full bg-slate-800 flex items-center justify-center mb-2 group-hover:bg-indigo-600/20 group-hover:text-indigo-300 text-slate-400 transition-colors">
+                      <ChevronRight className="w-5 h-5 group-hover:translate-x-0.5 transition-transform" />
+                    </div>
+                    <span className="text-xs font-semibold text-slate-300 group-hover:text-indigo-300 transition-colors">
+                      See All
+                    </span>
+                    <span className="text-[10px] text-slate-500 mt-0.5">
+                      {matchingType === 'beliefs' ? 'Beliefs' : 'Interests'}
+                    </span>
+                  </div>
+                </div>
+              </div>
+            ) : null;
+
+            return (
+              <div className="space-y-4 sm:space-y-6">
                 {isLoading ? (
                   <div className="space-y-4 sm:space-y-6">
                     {[...Array(3)].map((_, i) => (
@@ -1561,46 +1595,51 @@ const Feed = () => {
                   </div>
                 ) : feedItems.length > 0 ? (
                   <div className="space-y-4 sm:space-y-6">
-                    {feedItems.map((item) =>
-                      item.type === 'post' ? (
-                        <PostCard
-                          key={`post-${item.data.id}`}
-                          post={item.data as PostData}
-                          currentUserId={currentUserId || undefined}
-                          onSave={handleSave}
-                          onReport={handleReport}
-                          onEdit={handleEdit}
-                          onDelete={handleDelete}
-                          onReact={handleReact}
-                          onProfileClick={handleProfileClick}
-                          onShowEditHistory={handleShowEditHistory}
-                          onReflect={(p: any) => setReflectTargetPost(p)}
-                          onViewReflections={(p: any) => setReflectionsViewPost(p)}
-                        />
-                      ) : (
-                        <PostSeriesCard
-                          key={`series-${item.data.id}`}
-                          series={item.data as SeriesData}
-                          currentUserId={currentUserId}
-                          onProfileClick={handleProfileClick}
-                          onDelete={handleDeleteSeries}
-                        />
-                      )
-                    )}
+                    {feedItems.map((item, index) => (
+                      <React.Fragment key={`feed-item-${item.data.id}`}>
+                        {item.type === 'post' ? (
+                          <PostCard
+                            post={item.data as PostData}
+                            currentUserId={currentUserId || undefined}
+                            onSave={handleSave}
+                            onReport={handleReport}
+                            onEdit={handleEdit}
+                            onDelete={handleDelete}
+                            onReact={handleReact}
+                            onProfileClick={handleProfileClick}
+                            onShowEditHistory={handleShowEditHistory}
+                            onReflect={(p: any) => setReflectTargetPost(p)}
+                            onViewReflections={(p: any) => setReflectionsViewPost(p)}
+                          />
+                        ) : (
+                          <PostSeriesCard
+                            series={item.data as SeriesData}
+                            currentUserId={currentUserId}
+                            onProfileClick={handleProfileClick}
+                            onDelete={handleDeleteSeries}
+                          />
+                        )}
+                        {/* Insert matching widget among posts (e.g. after the 2nd post or 1st post if only 1) */}
+                        {index === Math.min(1, feedItems.length - 1) && matchingWidget}
+                      </React.Fragment>
+                    ))}
                   </div>
                 ) : (
-                  <div className="text-center py-12 sm:py-16 px-4">
-                    <div className="w-16 h-16 sm:w-20 sm:h-20 mx-auto mb-4 sm:mb-6 bg-gradient-to-br from-slate-600 to-slate-700 rounded-2xl flex items-center justify-center shadow-lg">
-                      <SearchIcon className="w-8 h-8 sm:w-10 sm:h-10 text-slate-100" />
+                  <div>
+                    {matchingWidget}
+                    <div className="text-center py-12 sm:py-16 px-4">
+                      <div className="w-16 h-16 sm:w-20 sm:h-20 mx-auto mb-4 sm:mb-6 bg-gradient-to-br from-slate-600 to-slate-700 rounded-2xl flex items-center justify-center shadow-lg">
+                        <SearchIcon className="w-8 h-8 sm:w-10 sm:h-10 text-slate-100" />
+                      </div>
+                      <h3 className="text-xl sm:text-2xl font-bold text-slate-100 mb-2">No posts yet</h3>
+                      <p className="text-slate-400 text-base sm:text-lg mb-4 sm:mb-6">Be the first to share something!</p>
+                      <button
+                        onClick={handleNavigateToCreate}
+                        className="px-4 sm:px-6 py-2 sm:py-3 bg-gradient-to-r from-slate-600 to-slate-700 hover:from-slate-500 hover:to-slate-600 text-white font-semibold rounded-xl sm:rounded-2xl transition-all duration-300 transform hover:scale-105 text-sm sm:text-base"
+                      >
+                        Create Post
+                      </button>
                     </div>
-                    <h3 className="text-xl sm:text-2xl font-bold text-slate-100 mb-2">No posts yet</h3>
-                    <p className="text-slate-400 text-base sm:text-lg mb-4 sm:mb-6">Be the first to share something!</p>
-                    <button
-                      onClick={handleNavigateToCreate}
-                      className="px-4 sm:px-6 py-2 sm:py-3 bg-gradient-to-r from-slate-600 to-slate-700 hover:from-slate-500 hover:to-slate-600 text-white font-semibold rounded-xl sm:rounded-2xl transition-all duration-300 transform hover:scale-105 text-sm sm:text-base"
-                    >
-                      Create Post
-                    </button>
                   </div>
                 )}
               </div>
