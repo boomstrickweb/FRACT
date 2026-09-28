@@ -14,6 +14,8 @@ const TOS = lazyWithRetry(() => import('./components/TOS'));
 const PP = lazyWithRetry(() => import('./components/PP'));
 const AvailableCountries = lazyWithRetry(() => import('./components/availablecountries'));
 const CampaignPage = lazyWithRetry(() => import('./components/CampaignPage'));
+const FindBeliefs = lazyWithRetry(() => import('./components/FindBeliefs'));
+const FindFieldOfInterest = lazyWithRetry(() => import('./components/FindFieldOfInterest'));
 
 import { supabase } from './lib/supabase';
 import { updateSessionActivity } from './services/sessionService';
@@ -253,6 +255,8 @@ function AppContent() {
           <Route path="/p/:postId" element={<PostRoute isAuthenticated={isAuthenticated} />} />
           <Route path="/u/:userId" element={<ProfileRoute />} />
           <Route path="/c/:campaignId" element={<CampaignPageRoute />} />
+          <Route path="/findbfs" element={isAuthenticated ? <FindBeliefs /> : <Navigate to="/intro" replace />} />
+          <Route path="/findfoi" element={isAuthenticated ? <FindFieldOfInterest /> : <Navigate to="/intro" replace />} />
           <Route path="/preview" element={<Preview />} />
           <Route path="/preview/:tab" element={<Preview />} />
           <Route path="/intro" element={<IntroPage onGetStarted={() => navigate('/auth')} />} />

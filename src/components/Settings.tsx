@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { ArrowLeft, Shield, Users, EyeOff, Settings as SettingsIcon, Smartphone, Monitor, Tablet, Globe, Clock, X, LogOut, Flag, HelpCircle, MessageSquare, FileText, Lock, BookOpen, Info, TrendingUp, Database, UserX, Award, CheckCircle, AlertCircle, Ban, VolumeX, ShieldAlert, Layers, Bot, Accessibility, Copyright } from 'lucide-react';
+import { ArrowLeft, Shield, Users, EyeOff, Settings as SettingsIcon, Smartphone, Monitor, Tablet, Globe, Clock, X, LogOut, Flag, HelpCircle, MessageSquare, FileText, Lock, BookOpen, Info, TrendingUp, Database, UserX, Award, CheckCircle, AlertCircle, Ban, VolumeX, ShieldAlert, Layers, Bot, Accessibility, Copyright, Laptop, Compass, Brain, Palette, Scale, HeartPulse, Film } from 'lucide-react';
 import { deleteSession, cleanupOldSessions } from '../services/sessionService';
 import { supabase, wrapMediaUrl } from '../lib/supabase';
 import { sanitizeExportData, logSecurityEvent, checkRateLimit } from '../services/securityService';
@@ -1810,16 +1810,16 @@ const Settings: React.FC<SettingsProps> = ({ onBack, onProfileUpdated, onLogout 
         {/* Content Tab */}
         {activeTab === 'content' && (() => {
           const CATEGORIES = [
-            { id: "💻 Technology, Software & Digital Culture", label: "Technology, Software & Digital Culture", icon: "💻" },
-            { id: "🔭 Science & Exploration", label: "Science & Exploration", icon: "🔭" },
-            { id: "🧠 Psychology, Philosophy & Human Mind", label: "Psychology, Philosophy & Human Mind", icon: "🧠" },
-            { id: "🎨 Arts, Design & Creativity", label: "Arts, Design & Creativity", icon: "🎨" },
-            { id: "📈 Economy, Business & Strategy", label: "Economy, Business & Strategy", icon: "📈" },
-            { id: "⚖️ Politics & Governance", label: "Politics & Governance", icon: "⚖️" },
-            { id: "🌍 Society & Everyday Life", label: "Society & Everyday Life", icon: "🌍" },
-            { id: "🎬 Entertainment & Pop Culture", label: "Entertainment & Pop Culture", icon: "🎬" },
-            { id: "🌱 Health & Wellbeing", label: "Health & Wellbeing", icon: "🌱" },
-            { id: "🌐 World Affairs", label: "World Affairs", icon: "🌐" }
+            { id: "💻 Technology, Software & Digital Culture", label: "Technology, Software & Digital Culture", icon: Laptop },
+            { id: "🔭 Science & Exploration", label: "Science & Exploration", icon: Compass },
+            { id: "🧠 Psychology, Philosophy & Human Mind", label: "Psychology, Philosophy & Human Mind", icon: Brain },
+            { id: "🎨 Arts, Design & Creativity", label: "Arts, Design & Creativity", icon: Palette },
+            { id: "📈 Economy, Business & Strategy", label: "Economy, Business & Strategy", icon: TrendingUp },
+            { id: "⚖️ Politics & Governance", label: "Politics & Governance", icon: Scale },
+            { id: "🌍 Society & Everyday Life", label: "Society & Everyday Life", icon: Users },
+            { id: "🎬 Entertainment & Pop Culture", label: "Entertainment & Pop Culture", icon: Film },
+            { id: "🌱 Health & Wellbeing", label: "Health & Wellbeing", icon: HeartPulse },
+            { id: "🌐 World Affairs", label: "World Affairs", icon: Globe }
           ];
 
           const toggleCategory = (list: string[], id: string): string[] =>
@@ -1898,6 +1898,7 @@ const Settings: React.FC<SettingsProps> = ({ onBack, onProfileUpdated, onLogout 
                     <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                       {CATEGORIES.map((cat) => {
                         const isExcluded = excludedCategories.includes(cat.id);
+                        const IconComponent = cat.icon;
                         return (
                           <button
                             key={cat.id}
@@ -1912,7 +1913,11 @@ const Settings: React.FC<SettingsProps> = ({ onBack, onProfileUpdated, onLogout 
                                 : 'bg-slate-700/20 border-slate-600/30 hover:border-slate-500/50 hover:bg-slate-700/30'
                             } ${isSavingContent ? 'opacity-60 cursor-wait' : 'cursor-pointer'}`}
                           >
-                            <span className="text-xl leading-none flex-shrink-0">{cat.icon}</span>
+                            <div className={`w-9 h-9 rounded-lg flex items-center justify-center flex-shrink-0 transition-colors ${
+                              isExcluded ? 'bg-red-500/20 text-red-400' : 'bg-slate-700/50 text-slate-400'
+                            }`}>
+                              <IconComponent className="w-5 h-5" />
+                            </div>
                             <span className={`text-sm font-medium flex-1 ${isExcluded ? 'text-red-300' : 'text-slate-300'}`}>
                               {cat.label}
                             </span>
@@ -1964,6 +1969,7 @@ const Settings: React.FC<SettingsProps> = ({ onBack, onProfileUpdated, onLogout 
                     <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                       {CATEGORIES.map((cat) => {
                         const isSelected = interestCategories.includes(cat.id);
+                        const IconComponent = cat.icon;
                         return (
                           <button
                             key={cat.id}
@@ -1978,7 +1984,11 @@ const Settings: React.FC<SettingsProps> = ({ onBack, onProfileUpdated, onLogout 
                                 : 'bg-slate-700/20 border-slate-600/30 hover:border-slate-500/50 hover:bg-slate-700/30'
                             } ${isSavingContent ? 'opacity-60 cursor-wait' : 'cursor-pointer'}`}
                           >
-                            <span className="text-xl leading-none flex-shrink-0">{cat.icon}</span>
+                            <div className={`w-9 h-9 rounded-lg flex items-center justify-center flex-shrink-0 transition-colors ${
+                              isSelected ? 'bg-blue-500/20 text-blue-400' : 'bg-slate-700/50 text-slate-400'
+                            }`}>
+                              <IconComponent className="w-5 h-5" />
+                            </div>
                             <span className={`text-sm font-medium flex-1 ${isSelected ? 'text-blue-300' : 'text-slate-300'}`}>
                               {cat.label}
                             </span>
