@@ -80,13 +80,12 @@ const FindFieldOfInterest: React.FC = () => {
   const fetchProfilesForField = async (field: string, currentUserId: string, fSet: Set<string>) => {
     try {
       setIsLoading(true);
+      console.log('🔍 Fetching profiles for field:', field);
       const { data: profilesData, error } = await supabase
         .from('profiles')
         .select('id, name, username, bio, profile_pic_url, beliefs, field, profile_type, is_verified, verification_type, verification_reason, trust_score')
-        .eq('field', field)
+        .ilike('field', `%${field}%`)
         .neq('id', currentUserId)
-        .not('is_banned', 'eq', true)
-        .not('is_deactivated', 'eq', true)
         .limit(50);
 
       if (error) {
@@ -94,6 +93,8 @@ const FindFieldOfInterest: React.FC = () => {
         setProfiles([]);
         return;
       }
+
+      console.log('✅ Found profiles for field:', field, profilesData);
 
       const list: ProfileItem[] = (profilesData || []).map(p => ({
         ...p,

@@ -143,6 +143,7 @@ const Feed = () => {
   const [matchingValue, setMatchingValue] = useState<string>('');
   const [matchingFollowingIds, setMatchingFollowingIds] = useState<Set<string>>(new Set());
   const [matchingFollowingLoading, setMatchingFollowingLoading] = useState<Record<string, boolean>>({});
+  const [carouselInsertIndex, setCarouselInsertIndex] = useState<number>(2);
 
   const loadSoulmatePosts = React.useCallback(async () => {
     try {
@@ -494,68 +495,50 @@ const Feed = () => {
 
   const loadMatchingProfiles = React.useCallback(async (userBeliefs?: string | null, userField?: string | null, userId?: string | null) => {
     try {
-      const DEFAULT_BELIEFS = ['Analyst', 'Libertarian', 'Humanist', 'Radical', 'Stoic', 'Debater'];
-      const DEFAULT_FIELDS = ['Science/Tech', 'Philosophy/Psychology', 'Politics', 'AI/Future Tech', 'Art/Culture'];
-
-      // Decide type: 'beliefs' or 'field' randomly
-      const chosenType: 'beliefs' | 'field' = Math.random() < 0.5 ? 'beliefs' : 'field';
-      
-      let chosenValue = chosenType === 'beliefs' ? userBeliefs : userField;
-      if (!chosenValue) {
-        // Fallback to random popular category if user hasn't set one yet
-        const defaults = chosenType === 'beliefs' ? DEFAULT_BELIEFS : DEFAULT_FIELDS;
-        chosenValue = defaults[Math.floor(Math.random() * defaults.length)];
+      if (!userId) {
+        setMatchingProfiles([]);
+        setMatchingType(null);
+        return;
       }
+
+      // Check which attributes the user has actually selected on their profile
+      const availableUserTypes: ('beliefs' | 'field')[] = [];
+      if (userBeliefs && userBeliefs.trim()) availableUserTypes.push('beliefs');
+      if (userField && userField.trim()) availableUserTypes.push('field');
+
+      // If the user has NOT specified beliefs or field, do NOT show matching profiles in feed
+      if (availableUserTypes.length === 0) {
+        setMatchingProfiles([]);
+        setMatchingType(null);
+        setMatchingValue('');
+        return;
+      }
+
+      // Randomly pick one of the user's configured attributes
+      const chosenType: 'beliefs' | 'field' = availableUserTypes[Math.floor(Math.random() * availableUserTypes.length)];
+      const chosenValue: string = chosenType === 'beliefs' ? userBeliefs!.trim() : userField!.trim();
 
       setMatchingType(chosenType);
       setMatchingValue(chosenValue);
 
+      // Randomize insertion index (between 2nd and 5th post)
+      setCarouselInsertIndex(Math.floor(Math.random() * 4) + 1); // 1, 2, 3, or 4
+
       // Query profiles with matching belief or field
-      let query = supabase
-        .from('profiles')
-        .select('id, name, username, bio, profile_pic_url, beliefs, field, profile_type, is_verified, verification_type, verification_reason, trust_score')
-        .eq(chosenType, chosenValue)
-        .not('is_banned', 'eq', true)
-        .not('is_deactivated', 'eq', true)
-        .limit(5);
-
-      if (userId) {
-        query = query.neq('id', userId);
-      }
-
       const [profilesRes, followsRes] = await Promise.all([
-        query,
-        userId
-          ? supabase.from('follows').select('following_id').eq('follower_id', userId)
-          : Promise.resolve({ data: [] })
-      ]);
-
-      let finalProfiles = profilesRes.data || [];
-
-      // If no profiles found for exact value, get any profiles that have this type filled
-      if (finalProfiles.length === 0) {
-        let fallbackQuery = supabase
+        supabase
           .from('profiles')
           .select('id, name, username, bio, profile_pic_url, beliefs, field, profile_type, is_verified, verification_type, verification_reason, trust_score')
-          .not(chosenType, 'is', null)
-          .neq(chosenType, '')
-          .not('is_banned', 'eq', true)
-          .not('is_deactivated', 'eq', true)
-          .limit(5);
+          .ilike(chosenType, `%${chosenValue}%`)
+          .neq('id', userId)
+          .limit(5),
+        supabase
+          .from('follows')
+          .select('following_id')
+          .eq('follower_id', userId)
+      ]);
 
-        if (userId) {
-          fallbackQuery = fallbackQuery.neq('id', userId);
-        }
-
-        const fallbackRes = await fallbackQuery;
-        if (fallbackRes.data && fallbackRes.data.length > 0) {
-          finalProfiles = fallbackRes.data;
-          const firstVal = (fallbackRes.data[0] as any)[chosenType];
-          if (firstVal) {
-            setMatchingValue(firstVal);
-          }
-        }
-      }
+      const finalProfiles = profilesRes.data || [];
 
       if (finalProfiles.length > 0) {
         const fSet = new Set<string>((followsRes.data || []).map((f: any) => f.following_id));
@@ -566,6 +549,7 @@ const Feed = () => {
       }
     } catch (err) {
       console.error('Error loading matching profiles in feed:', err);
+      setMatchingProfiles([]);
     }
   }, []);
 
@@ -585,9 +569,14 @@ const Feed = () => {
         setExcludedCategories(profile?.excluded_categories ?? []);
 
         await loadMatchingProfiles(profile?.beliefs, profile?.field, user.id);
+      } else {
+        setMatchingProfiles([]);
+        setMatchingType(null);
       }
     } catch (error) {
       console.error('Error loading current user:', error);
+      setMatchingProfiles([]);
+      setMatchingType(null);
     }
   }, [loadMatchingProfiles]);
 
@@ -1619,8 +1608,8 @@ const Feed = () => {
                             onDelete={handleDeleteSeries}
                           />
                         )}
-                        {/* Insert matching widget among posts (e.g. after the 2nd post or 1st post if only 1) */}
-                        {index === Math.min(1, feedItems.length - 1) && matchingWidget}
+                        {/* Insert matching widget among posts at a randomized position */}
+                        {index === Math.min(carouselInsertIndex, feedItems.length - 1) && matchingWidget}
                       </React.Fragment>
                     ))}
                   </div>
