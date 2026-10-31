@@ -23,6 +23,7 @@ interface ProfileData {
   id: string;
   name: string;
   username?: string;
+  pronouns?: string;
   bio?: string;
   profile_pic_url?: string;
   cover_pic_url?: string;
@@ -768,7 +769,7 @@ const Profile: React.FC<ProfileProps> = ({ userId: propsUserId, onBack, onNaviga
             verified_at,
             is_active
           )`
-        : `id, username, name, bio, profile_pic_url, cover_pic_url, profile_completed,
+        : `id, username, name, pronouns, bio, profile_pic_url, cover_pic_url, profile_completed,
           beliefs, field, notifications_enabled, show_following, show_respected_posts,
           show_rejected_posts, show_observed_posts, is_deactivated, deactivated_at,
           two_factor_enabled, is_verified, verification_type, verification_reason, profile_type,
@@ -1771,9 +1772,16 @@ const Profile: React.FC<ProfileProps> = ({ userId: propsUserId, onBack, onNaviga
               )}
             </div>
             
-            {profile.username && (
-              <p className="text-slate-400 mb-3">@{profile.username}</p>
-            )}
+            <div className="flex items-center space-x-2 mb-3">
+              {profile.username && (
+                <p className="text-slate-400">@{profile.username}</p>
+              )}
+              {profile.pronouns && (
+                <span className="text-xs px-2.5 py-0.5 rounded-full bg-slate-800/80 border border-slate-700/80 text-slate-300 font-medium">
+                  {profile.pronouns}
+                </span>
+              )}
+            </div>
             
             {profile.bio && (
               <p className="text-slate-300 mb-4 leading-relaxed">{profile.bio}</p>

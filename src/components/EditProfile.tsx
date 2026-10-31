@@ -13,6 +13,7 @@ interface EditProfileProps {
 interface ProfileData {
   id: string;
   name: string;
+  pronouns?: string;
   bio?: string;
   profile_pic_url?: string;
   cover_pic_url?: string;
@@ -26,6 +27,21 @@ interface ProfileData {
     social_vibe: string;
   };
 }
+
+const pronounsList = [
+  'she / her',
+  'he / him',
+  'they / them',
+  'it / its',
+  'ze / zir',
+  'xe / xem',
+  'ey / em',
+  'fae / faer',
+  've / ver',
+  'any pronouns',
+  'ask me',
+  'no pronouns'
+];
 
 const beliefs = [
   'Libertarian', 'Analyst', 'Humanist', 'Radical', 'Low-Profile',
@@ -49,6 +65,7 @@ const EditProfile: React.FC<EditProfileProps> = ({ onBack, onProfileUpdated }) =
   const [profileData, setProfileData] = useState<ProfileData | null>(null);
   const [formData, setFormData] = useState({
     name: '',
+    pronouns: '',
     bio: '',
     beliefs: '',
     field: '',
@@ -131,6 +148,7 @@ const EditProfile: React.FC<EditProfileProps> = ({ onBack, onProfileUpdated }) =
       setProfileData(profile);
       setFormData({
         name: profile.name || '',
+        pronouns: profile.pronouns || '',
         bio: profile.bio || '',
         beliefs: profile.beliefs || '',
         field: profile.field || '',
@@ -312,6 +330,7 @@ const EditProfile: React.FC<EditProfileProps> = ({ onBack, onProfileUpdated }) =
         .from('profiles')
         .update({
           name: formData.name.trim() || null,
+          pronouns: formData.pronouns || null,
           bio: formData.bio.trim() || null,
           beliefs: formData.beliefs || null,
           field: formData.field || null,
@@ -482,6 +501,23 @@ const EditProfile: React.FC<EditProfileProps> = ({ onBack, onProfileUpdated }) =
               className="w-full p-4 bg-slate-800/50 border border-slate-700 rounded-2xl text-slate-200 placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-slate-500 focus:border-transparent transition-all duration-300 backdrop-blur-sm"
               maxLength={50}
             />
+          </div>
+
+          {/* Pronouns */}
+          <div className="space-y-2">
+            <label className="block text-slate-300 font-medium">Pronouns</label>
+            <select
+              value={formData.pronouns}
+              onChange={(e) => setFormData(prev => ({ ...prev, pronouns: e.target.value }))}
+              className="w-full p-4 bg-slate-800/50 border border-slate-700 rounded-2xl text-slate-200 focus:outline-none focus:ring-2 focus:ring-slate-500 focus:border-transparent transition-all duration-300 backdrop-blur-sm"
+            >
+              <option value="">Select your pronouns</option>
+              {pronounsList.map((pronoun) => (
+                <option key={pronoun} value={pronoun} className="bg-slate-800">
+                  {pronoun}
+                </option>
+              ))}
+            </select>
           </div>
 
           {/* Bio */}
