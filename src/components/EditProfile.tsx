@@ -14,6 +14,7 @@ interface ProfileData {
   id: string;
   name: string;
   pronouns?: string;
+  gender?: string;
   bio?: string;
   profile_pic_url?: string;
   cover_pic_url?: string;
@@ -43,6 +44,24 @@ const pronounsList = [
   'no pronouns'
 ];
 
+const genderList = [
+  'Woman',
+  'Man',
+  'Non-binary',
+  'Trans woman',
+  'Trans man',
+  'Genderfluid',
+  'Agender',
+  'Genderqueer',
+  'Bigender',
+  'Demigender',
+  'Transfeminine',
+  'Transmasculine',
+  'Questioning',
+  'Another identity',
+  'Prefer not to say'
+];
+
 const beliefs = [
   'Libertarian', 'Analyst', 'Humanist', 'Radical', 'Low-Profile',
   'Satirical', 'Minimalist', 'Nihilist', 'Debater', 'Expat Voice', 'Centrist',
@@ -66,6 +85,7 @@ const EditProfile: React.FC<EditProfileProps> = ({ onBack, onProfileUpdated }) =
   const [formData, setFormData] = useState({
     name: '',
     pronouns: '',
+    gender: '',
     bio: '',
     beliefs: '',
     field: '',
@@ -149,6 +169,7 @@ const EditProfile: React.FC<EditProfileProps> = ({ onBack, onProfileUpdated }) =
       setFormData({
         name: profile.name || '',
         pronouns: profile.pronouns || '',
+        gender: profile.gender || '',
         bio: profile.bio || '',
         beliefs: profile.beliefs || '',
         field: profile.field || '',
@@ -331,6 +352,7 @@ const EditProfile: React.FC<EditProfileProps> = ({ onBack, onProfileUpdated }) =
         .update({
           name: formData.name.trim() || null,
           pronouns: formData.pronouns || null,
+          gender: formData.gender || null,
           bio: formData.bio.trim() || null,
           beliefs: formData.beliefs || null,
           field: formData.field || null,
@@ -515,6 +537,23 @@ const EditProfile: React.FC<EditProfileProps> = ({ onBack, onProfileUpdated }) =
               {pronounsList.map((pronoun) => (
                 <option key={pronoun} value={pronoun} className="bg-slate-800">
                   {pronoun}
+                </option>
+              ))}
+            </select>
+          </div>
+
+          {/* Gender */}
+          <div className="space-y-2">
+            <label className="block text-slate-300 font-medium">Gender</label>
+            <select
+              value={formData.gender}
+              onChange={(e) => setFormData(prev => ({ ...prev, gender: e.target.value }))}
+              className="w-full p-4 bg-slate-800/50 border border-slate-700 rounded-2xl text-slate-200 focus:outline-none focus:ring-2 focus:ring-slate-500 focus:border-transparent transition-all duration-300 backdrop-blur-sm"
+            >
+              <option value="">Select your gender</option>
+              {genderList.map((gender) => (
+                <option key={gender} value={gender} className="bg-slate-800">
+                  {gender}
                 </option>
               ))}
             </select>

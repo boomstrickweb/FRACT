@@ -24,6 +24,7 @@ interface ProfileData {
   name: string;
   username?: string;
   pronouns?: string;
+  gender?: string;
   bio?: string;
   profile_pic_url?: string;
   cover_pic_url?: string;
@@ -769,7 +770,7 @@ const Profile: React.FC<ProfileProps> = ({ userId: propsUserId, onBack, onNaviga
             verified_at,
             is_active
           )`
-        : `id, username, name, pronouns, bio, profile_pic_url, cover_pic_url, profile_completed,
+        : `id, username, name, pronouns, gender, bio, profile_pic_url, cover_pic_url, profile_completed,
           beliefs, field, notifications_enabled, show_following, show_respected_posts,
           show_rejected_posts, show_observed_posts, is_deactivated, deactivated_at,
           two_factor_enabled, is_verified, verification_type, verification_reason, profile_type,
@@ -1789,6 +1790,13 @@ const Profile: React.FC<ProfileProps> = ({ userId: propsUserId, onBack, onNaviga
 
             {/* Additional Info */}
             <div className="flex flex-wrap items-center gap-4 text-slate-400 text-sm mb-4">
+              {profile.gender && (
+                <div className="flex items-center space-x-1">
+                  <span>⚧️</span>
+                  <span>{profile.gender}</span>
+                </div>
+              )}
+
               {profile.beliefs && (
                 <div className="flex items-center space-x-1">
                   <span>🎯</span>
