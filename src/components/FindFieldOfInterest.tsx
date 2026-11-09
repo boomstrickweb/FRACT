@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { ArrowLeft, UserPlus, UserCheck, Shield, Award, Compass, Filter } from 'lucide-react';
 import { supabase, wrapMediaUrl } from '../lib/supabase';
+import { getFieldIconConfig, getBeliefIconConfig } from '../lib/categoryIcons';
 
 const FIELD_OPTIONS = [
   'Politics', 'Science/Tech', 'Philosophy/Psychology', 'Art/Culture',
@@ -199,18 +200,21 @@ const FindFieldOfInterest: React.FC = () => {
             {FIELD_OPTIONS.map((field) => {
               const isSelected = selectedField === field;
               const isMyField = myField === field;
+              const iconConfig = getFieldIconConfig(field);
+              const IconComp = iconConfig.icon;
               return (
                 <button
                   key={field}
                   onClick={() => handleSelectField(field)}
-                  className={`px-3.5 py-1.5 rounded-full text-xs font-medium transition-all duration-200 border ${
+                  className={`inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-full text-xs font-medium transition-all duration-200 border ${
                     isSelected
                       ? 'bg-cyan-600/30 text-cyan-200 border-cyan-500/50 ring-1 ring-cyan-500/30'
                       : 'bg-slate-800/60 text-slate-300 border-slate-700/60 hover:bg-slate-700/50 hover:text-white'
                   }`}
                 >
-                  {field}
-                  {isMyField && <span className="ml-1.5 text-[10px] text-cyan-400 font-bold">• You</span>}
+                  <IconComp className={`w-3.5 h-3.5 ${isSelected ? 'text-cyan-300' : iconConfig.colorClass}`} />
+                  <span>{field}</span>
+                  {isMyField && <span className="ml-1 text-[10px] text-cyan-400 font-bold">• You</span>}
                 </button>
               );
             })}
@@ -309,17 +313,27 @@ const FindFieldOfInterest: React.FC = () => {
                 </div>
 
                 <div className="mt-4 pt-3 border-t border-slate-700/40 flex items-center justify-between text-[11px]">
-                  <div className="flex items-center gap-1.5">
-                    {profile.field && (
-                      <span className="px-2 py-0.5 rounded-md bg-cyan-500/10 border border-cyan-500/20 text-cyan-300">
-                        {profile.field}
-                      </span>
-                    )}
-                    {profile.beliefs && (
-                      <span className="px-2 py-0.5 rounded-md bg-slate-700/40 border border-slate-600/30 text-slate-400">
-                        {profile.beliefs}
-                      </span>
-                    )}
+                  <div className="flex flex-wrap items-center gap-1.5">
+                    {profile.field && (() => {
+                      const cfg = getFieldIconConfig(profile.field);
+                      const FIcon = cfg.icon;
+                      return (
+                        <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md bg-cyan-500/10 border border-cyan-500/20 text-cyan-300">
+                          <FIcon className={`w-3 h-3 ${cfg.colorClass}`} />
+                          <span>{profile.field}</span>
+                        </span>
+                      );
+                    })()}
+                    {profile.beliefs && (() => {
+                      const cfg = getBeliefIconConfig(profile.beliefs);
+                      const BIcon = cfg.icon;
+                      return (
+                        <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md bg-slate-700/40 border border-slate-600/30 text-slate-300">
+                          <BIcon className={`w-3 h-3 ${cfg.colorClass}`} />
+                          <span>{profile.beliefs}</span>
+                        </span>
+                      );
+                    })()}
                   </div>
                   {profile.trust_score !== undefined && (
                     <span className="text-slate-400 font-mono">

@@ -2,6 +2,7 @@ import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { ArrowLeft, User, Calendar, Settings as SettingsIcon, CreditCard as Edit3, Users, UserPlus, UserMinus, MoreHorizontal, Flag, VolumeX, Ban, Plus, Heart, X, Eye, Newspaper, ShieldAlert, TrendingUp, FileEdit, Link2, AlertTriangle, Scale, Bookmark, BookOpen, MessageSquare, Loader2 } from 'lucide-react';
 import { supabase, getCDNUrl, wrapMediaUrl } from '../lib/supabase';
+import { getFieldIconConfig, getBeliefIconConfig, getGenderIconConfig } from '../lib/categoryIcons';
 import BlueskyIcon from './BlueskyIcon';
 import { disconnectBlueskyProfile } from '../services/blueskyService';
 import PostCard from './PostCard';
@@ -1789,30 +1790,42 @@ const Profile: React.FC<ProfileProps> = ({ userId: propsUserId, onBack, onNaviga
             )}
 
             {/* Additional Info */}
-            <div className="flex flex-wrap items-center gap-4 text-slate-400 text-sm mb-4">
-              {profile.gender && (
-                <div className="flex items-center space-x-1">
-                  <span>⚧️</span>
-                  <span>{profile.gender}</span>
-                </div>
-              )}
+            <div className="flex flex-wrap items-center gap-x-4 gap-y-2 text-slate-400 text-sm mb-4">
+              {profile.gender && (() => {
+                const config = getGenderIconConfig(profile.gender);
+                const GenderIcon = config.icon;
+                return (
+                  <div className="flex items-center space-x-1.5 bg-slate-800/40 px-2.5 py-1 rounded-lg border border-slate-700/50">
+                    <GenderIcon className={`w-3.5 h-3.5 ${config.colorClass} flex-shrink-0`} />
+                    <span className="text-slate-300 text-xs sm:text-sm">{profile.gender}</span>
+                  </div>
+                );
+              })()}
 
-              {profile.beliefs && (
-                <div className="flex items-center space-x-1">
-                  <span>🎯</span>
-                  <span>{profile.beliefs}</span>
-                </div>
-              )}
+              {profile.beliefs && (() => {
+                const config = getBeliefIconConfig(profile.beliefs);
+                const BeliefIcon = config.icon;
+                return (
+                  <div className="flex items-center space-x-1.5 bg-slate-800/40 px-2.5 py-1 rounded-lg border border-slate-700/50">
+                    <BeliefIcon className={`w-3.5 h-3.5 ${config.colorClass} flex-shrink-0`} />
+                    <span className="text-slate-300 text-xs sm:text-sm">{profile.beliefs}</span>
+                  </div>
+                );
+              })()}
               
-              {profile.field && (
-                <div className="flex items-center space-x-1">
-                  <span>💼</span>
-                  <span>{profile.field}</span>
-                </div>
-              )}
+              {profile.field && (() => {
+                const config = getFieldIconConfig(profile.field);
+                const FieldIcon = config.icon;
+                return (
+                  <div className="flex items-center space-x-1.5 bg-slate-800/40 px-2.5 py-1 rounded-lg border border-slate-700/50">
+                    <FieldIcon className={`w-3.5 h-3.5 ${config.colorClass} flex-shrink-0`} />
+                    <span className="text-slate-300 text-xs sm:text-sm">{profile.field}</span>
+                  </div>
+                );
+              })()}
               
-              <div className="flex items-center space-x-1">
-                <Calendar className="w-4 h-4" />
+              <div className="flex items-center space-x-1.5 text-xs sm:text-sm text-slate-400">
+                <Calendar className="w-3.5 h-3.5 text-slate-400 flex-shrink-0" />
                 <span>Joined {formatJoinDate(profile.created_at)}</span>
               </div>
 
@@ -1822,7 +1835,7 @@ const Profile: React.FC<ProfileProps> = ({ userId: propsUserId, onBack, onNaviga
                     href={`https://bsky.app/profile/${profile.bluesky_handle}`}
                     target="_blank"
                     rel="noopener noreferrer"
-                    className="inline-flex items-center space-x-1.5 px-3 py-1 bg-sky-500/10 hover:bg-sky-500/20 border border-sky-500/30 text-sky-400 hover:text-sky-300 rounded-full text-sm font-medium transition-all duration-300 transform hover:scale-105"
+                    className="inline-flex items-center space-x-1.5 px-3 py-1 bg-sky-500/10 hover:bg-sky-500/20 border border-sky-500/30 text-sky-400 hover:text-sky-300 rounded-full text-xs sm:text-sm font-medium transition-all duration-300 transform hover:scale-105"
                     title={`View @${profile.bluesky_handle} on Bluesky`}
                   >
                     <BlueskyIcon className="w-3.5 h-3.5 fill-current" />

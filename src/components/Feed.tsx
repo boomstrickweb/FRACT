@@ -17,6 +17,7 @@ import ReflectionsView from './ReflectionsView';
 import ActionPassword from './ActionPassword';
 import Campaigns from './Campaigns';
 import { supabase } from '../lib/supabase';
+import { getBeliefIconConfig, getFieldIconConfig } from '../lib/categoryIcons';
 import { loadEchoPosts, enrichEchoPosts, type EchoTier, type EchoMatch } from '../services/echoService';
 
 interface PostData {
@@ -1471,15 +1472,16 @@ const Feed = () => {
                 >
                   <div className="flex items-center justify-between mb-3.5">
                     <div className="flex items-center space-x-2">
-                      {isBeliefs ? (
-                        <div className="w-7 h-7 rounded-lg bg-indigo-500/20 text-indigo-400 flex items-center justify-center">
-                          <Sparkles className="w-4 h-4" />
-                        </div>
-                      ) : (
-                        <div className="w-7 h-7 rounded-lg bg-cyan-500/20 text-cyan-400 flex items-center justify-center">
-                          <Compass className="w-4 h-4" />
-                        </div>
-                      )}
+                      {(() => {
+                        const iconConfig = isBeliefs ? getBeliefIconConfig(value) : getFieldIconConfig(value);
+                        const IconComp = iconConfig.icon;
+                        const bgClass = isBeliefs ? 'bg-indigo-500/20' : 'bg-cyan-500/20';
+                        return (
+                          <div className={`w-7 h-7 rounded-lg ${bgClass} flex items-center justify-center`}>
+                            <IconComp className={`w-4 h-4 ${iconConfig.colorClass}`} />
+                          </div>
+                        );
+                      })()}
                       <div>
                         <h3 className="text-sm font-semibold text-slate-100 flex items-center gap-1.5">
                           {isBeliefs ? 'Matching Beliefs' : 'In Your Field'}

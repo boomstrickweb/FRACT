@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { ArrowLeft, UserPlus, UserCheck, Shield, Award, Sparkles, Filter } from 'lucide-react';
 import { supabase, wrapMediaUrl } from '../lib/supabase';
+import { getBeliefIconConfig, getFieldIconConfig } from '../lib/categoryIcons';
 
 const BELIEF_OPTIONS = [
   'Libertarian', 'Analyst', 'Humanist', 'Radical', 'Low-Profile',
@@ -199,18 +200,21 @@ const FindBeliefs: React.FC = () => {
             {BELIEF_OPTIONS.map((belief) => {
               const isSelected = selectedBelief === belief;
               const isMyBelief = myBelief === belief;
+              const iconConfig = getBeliefIconConfig(belief);
+              const IconComp = iconConfig.icon;
               return (
                 <button
                   key={belief}
                   onClick={() => handleSelectBelief(belief)}
-                  className={`px-3.5 py-1.5 rounded-full text-xs font-medium transition-all duration-200 border ${
+                  className={`inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-full text-xs font-medium transition-all duration-200 border ${
                     isSelected
                       ? 'bg-indigo-600/30 text-indigo-200 border-indigo-500/50 ring-1 ring-indigo-500/30'
                       : 'bg-slate-800/60 text-slate-300 border-slate-700/60 hover:bg-slate-700/50 hover:text-white'
                   }`}
                 >
-                  {belief}
-                  {isMyBelief && <span className="ml-1.5 text-[10px] text-indigo-400 font-bold">• You</span>}
+                  <IconComp className={`w-3.5 h-3.5 ${isSelected ? 'text-indigo-300' : iconConfig.colorClass}`} />
+                  <span>{belief}</span>
+                  {isMyBelief && <span className="ml-1 text-[10px] text-indigo-400 font-bold">• You</span>}
                 </button>
               );
             })}
@@ -309,17 +313,27 @@ const FindBeliefs: React.FC = () => {
                 </div>
 
                 <div className="mt-4 pt-3 border-t border-slate-700/40 flex items-center justify-between text-[11px]">
-                  <div className="flex items-center gap-1.5">
-                    {profile.beliefs && (
-                      <span className="px-2 py-0.5 rounded-md bg-indigo-500/10 border border-indigo-500/20 text-indigo-300">
-                        {profile.beliefs}
-                      </span>
-                    )}
-                    {profile.field && (
-                      <span className="px-2 py-0.5 rounded-md bg-slate-700/40 border border-slate-600/30 text-slate-400">
-                        {profile.field}
-                      </span>
-                    )}
+                  <div className="flex flex-wrap items-center gap-1.5">
+                    {profile.beliefs && (() => {
+                      const cfg = getBeliefIconConfig(profile.beliefs);
+                      const BIcon = cfg.icon;
+                      return (
+                        <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md bg-indigo-500/10 border border-indigo-500/20 text-indigo-300">
+                          <BIcon className={`w-3 h-3 ${cfg.colorClass}`} />
+                          <span>{profile.beliefs}</span>
+                        </span>
+                      );
+                    })()}
+                    {profile.field && (() => {
+                      const cfg = getFieldIconConfig(profile.field);
+                      const FIcon = cfg.icon;
+                      return (
+                        <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md bg-slate-700/40 border border-slate-600/30 text-slate-300">
+                          <FIcon className={`w-3 h-3 ${cfg.colorClass}`} />
+                          <span>{profile.field}</span>
+                        </span>
+                      );
+                    })()}
                   </div>
                   {profile.trust_score !== undefined && (
                     <span className="text-slate-400 font-mono">
