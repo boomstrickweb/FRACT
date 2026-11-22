@@ -67,7 +67,7 @@ export const resolveBlueskyProfile = async (handleOrDid: string): Promise<Bluesk
 };
 
 /**
- * Initiates Bluesky OAuth flow
+ * Initiates Bluesky OAuth flow (1-click, without pre-requiring a handle input)
  */
 export const initiateBlueskyOAuth = async (handle?: string): Promise<{ authUrl: string; state: string }> => {
   const state = generateRandomString(32);
@@ -92,11 +92,12 @@ export const initiateBlueskyOAuth = async (handle?: string): Promise<{ authUrl: 
   const redirectUri = `${origin}/`;
   
   // AT Protocol / Bluesky OAuth authorization endpoint
+  // Requesting solely identity/display scope ('atproto'), no moderation permissions
   const authUrl = new URL('https://bsky.social/oauth/authorize');
   authUrl.searchParams.set('client_id', 'https://fract.online/oauth/client-metadata.json');
   authUrl.searchParams.set('response_type', 'code');
   authUrl.searchParams.set('redirect_uri', redirectUri);
-  authUrl.searchParams.set('scope', 'atproto transition:generic');
+  authUrl.searchParams.set('scope', 'atproto');
   authUrl.searchParams.set('state', state);
   authUrl.searchParams.set('code_challenge', codeChallenge);
   authUrl.searchParams.set('code_challenge_method', 'S256');
@@ -128,6 +129,7 @@ export const handleBlueskyOAuthCallback = async (): Promise<{
     }
 
     const savedState = localStorage.getItem('bsky_oauth_state') || sessionStorage.getItem('bsky_oauth_state');
+    const savedVerifier = localStorage.getItem('bsky_oauth_verifier') || sessionStorage.getItem('bsky_oauth_verifier');
     const savedHandle = localStorage.getItem('bsky_oauth_handle') || sessionStorage.getItem('bsky_oauth_handle');
 
     // Clean up query parameters from browser URL bar while preserving path/hash
@@ -148,16 +150,65 @@ export const handleBlueskyOAuthCallback = async (): Promise<{
       return { handled: true, success: false, error: msg };
     }
 
-    if (code && state && state === savedState && savedHandle) {
+    if (code && state && state === savedState) {
       const { data: { user } } = await supabase.auth.getUser();
-      if (user) {
-        const res = await linkBlueskyProfile(user.id, savedHandle);
+      if (!user) {
+        return { handled: true, success: false, error: 'User session not found' };
+      }
+
+      let origin = window.location.origin;
+      if (origin.includes('//localhost')) {
+        origin = origin.replace('//localhost', '//127.0.0.1');
+      }
+      const redirectUri = `${origin}/`;
+
+      let actorHandle = savedHandle;
+      let actorDid: string | undefined = undefined;
+
+      // Exchange code for token / DID
+      if (savedVerifier) {
+        try {
+          const body = new URLSearchParams();
+          body.set('grant_type', 'authorization_code');
+          body.set('code', code);
+          body.set('redirect_uri', redirectUri);
+          body.set('client_id', 'https://fract.online/oauth/client-metadata.json');
+          body.set('code_verifier', savedVerifier);
+
+          const tokenRes = await fetch('https://bsky.social/oauth/token', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+            body: body.toString(),
+          });
+
+          if (tokenRes.ok) {
+            const tokenData = await tokenRes.json();
+            if (tokenData.sub) {
+              actorDid = tokenData.sub;
+              const profile = await resolveBlueskyProfile(actorDid);
+              if (profile && profile.handle) {
+                actorHandle = profile.handle;
+              }
+            }
+          }
+        } catch (tokenErr) {
+          console.warn('Could not exchange token directly:', tokenErr);
+        }
+      }
+
+      if (actorHandle) {
+        const res = await linkBlueskyProfile(user.id, actorHandle, actorDid);
+        return { handled: true, success: res.success, handle: res.handle, error: res.error };
+      } else if (actorDid) {
+        const profile = await resolveBlueskyProfile(actorDid);
+        const res = await linkBlueskyProfile(user.id, profile.handle, actorDid);
         return { handled: true, success: res.success, handle: res.handle, error: res.error };
       }
-      return { handled: true, success: false, error: 'User session not found' };
+
+      return { handled: true, success: false, error: 'Could not retrieve Bluesky handle from authorization' };
     }
 
-    return { handled: true, success: false, error: 'OAuth state mismatch or missing handle' };
+    return { handled: true, success: false, error: 'OAuth state mismatch' };
   } catch (err: any) {
     console.error('Error handling Bluesky OAuth callback:', err);
     return { handled: true, success: false, error: err?.message || 'OAuth callback processing failed' };
