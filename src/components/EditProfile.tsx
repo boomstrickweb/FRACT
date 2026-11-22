@@ -1,9 +1,10 @@
 import React, { useState, useRef, useEffect } from 'react';
-import { ArrowLeft, Camera, Save, User, Image, Heart, Sparkles, X } from 'lucide-react';
-import { supabase, getCDNUrl, wrapMediaUrl } from '../lib/supabase';
+import { ArrowLeft, Camera, Save, User, Image, Sparkles, X, Check, Shield, Info, ChevronDown, ChevronUp, AlertCircle, Fingerprint, Heart } from 'lucide-react';
+import { supabase, wrapMediaUrl } from '../lib/supabase';
 import { uploadToR2 } from '../lib/r2.ts';
 import BlueskyIcon from './BlueskyIcon';
-import { initiateBlueskyOAuth, handleBlueskyOAuthCallback, linkBlueskyProfile, disconnectBlueskyProfile } from '../services/blueskyService';
+import { initiateBlueskyOAuth, handleBlueskyOAuthCallback, disconnectBlueskyProfile } from '../services/blueskyService';
+import { getGenderIconConfig, getOrientationIconConfig, getBeliefIconConfig, getFieldIconConfig } from '../lib/categoryIcons';
 
 interface EditProfileProps {
   onBack: () => void;
@@ -15,6 +16,8 @@ interface ProfileData {
   name: string;
   pronouns?: string;
   gender?: string;
+  sexual_orientation?: string;
+  sexual_orientation_consent?: boolean;
   bio?: string;
   profile_pic_url?: string;
   cover_pic_url?: string;
@@ -22,11 +25,6 @@ interface ProfileData {
   field?: string;
   bluesky_handle?: string | null;
   bluesky_did?: string | null;
-  soulcode?: {
-    core_drive: string;
-    value_spectrum: string;
-    social_vibe: string;
-  };
 }
 
 const pronounsList = [
@@ -62,6 +60,29 @@ const genderList = [
   'Prefer not to say'
 ];
 
+const sexualOrientationList = [
+  'Heterosexual / Straight',
+  'Gay',
+  'Lesbian',
+  'Bisexual',
+  'Pansexual',
+  'Omnisexual',
+  'Polysexual',
+  'Queer',
+  'Asexual',
+  'Demisexual',
+  'Graysexual',
+  'Androsexual',
+  'Gynesexual',
+  'Skoliosexual',
+  'Cupiosexual',
+  'Fraysexual',
+  'Lithosexual / Akoisexual',
+  'Pomosexual',
+  'Questioning',
+  'Another identity'
+];
+
 const beliefs = [
   'Libertarian', 'Analyst', 'Humanist', 'Radical', 'Low-Profile',
   'Satirical', 'Minimalist', 'Nihilist', 'Debater', 'Expat Voice', 'Centrist',
@@ -74,43 +95,44 @@ const fields = [
   'Space/Astronomy', 'Literature/Writing', 'Activism/Protest Culture'
 ];
 
-const soulcodeOptions = {
-  core_drive: ['freedom', 'order', 'impact', 'ambition', 'connection', 'discovery'],
-  value_spectrum: ['rationalist', 'humanist', 'individualist', 'collectivist', 'existentialist', 'pragmatist'],
-  social_vibe: ['calm', 'intense', 'playful', 'bold', 'private', 'chaotic']
-};
+// Helper to parse comma separated values to array
+function parseList(val?: string | null): string[] {
+  if (!val) return [];
+  return val.split(',').map(s => s.trim()).filter(Boolean);
+}
 
 const EditProfile: React.FC<EditProfileProps> = ({ onBack, onProfileUpdated }) => {
   const [profileData, setProfileData] = useState<ProfileData | null>(null);
-  const [formData, setFormData] = useState({
-    name: '',
-    pronouns: '',
-    gender: '',
-    bio: '',
-    beliefs: '',
-    field: '',
-  });
+  
+  // Basic info state
+  const [name, setName] = useState('');
+  const [bio, setBio] = useState('');
+
+  // Identity & Expression state (multi-selects)
+  const [selectedPronouns, setSelectedPronouns] = useState<string[]>([]);
+  const [selectedGender, setSelectedGender] = useState<string[]>([]);
+  const [selectedOrientation, setSelectedOrientation] = useState<string[]>([]);
+  const [orientationConsent, setOrientationConsent] = useState(false);
+  const [orientationConsentConfirmed, setOrientationConsentConfirmed] = useState(false);
+
+  // Interests & Perspectives state
+  const [selectedBelief, setSelectedBelief] = useState('');
+  const [selectedField, setSelectedField] = useState('');
+
+  // Image uploads
   const [profilePic, setProfilePic] = useState<File | null>(null);
   const [coverPic, setCoverPic] = useState<File | null>(null);
   const [profilePicPreview, setProfilePicPreview] = useState<string | null>(null);
   const [coverPicPreview, setCoverPicPreview] = useState<string | null>(null);
-  const [soulcode, setSoulcode] = useState({
-    core_drive: '',
-    value_spectrum: '',
-    social_vibe: ''
-  });
-  const [showSoulcode, setShowSoulcode] = useState(false);
+
   const [isLoading, setIsLoading] = useState(true);
   const [isSaving, setIsSaving] = useState(false);
   const [error, setError] = useState('');
 
   // Bluesky connection state
   const [blueskyHandle, setBlueskyHandle] = useState<string>('');
-  const [blueskyInput, setBlueskyInput] = useState('');
-  const [showBlueskyModal, setShowBlueskyModal] = useState(false);
   const [isConnectingBluesky, setIsConnectingBluesky] = useState(false);
   const [isDisconnectingBluesky, setIsDisconnectingBluesky] = useState(false);
-  const [blueskyModalError, setBlueskyModalError] = useState('');
 
   const profilePicRef = useRef<HTMLInputElement>(null);
   const coverPicRef = useRef<HTMLInputElement>(null);
@@ -132,10 +154,9 @@ const EditProfile: React.FC<EditProfileProps> = ({ onBack, onProfileUpdated }) =
       if (res.handled) {
         if (res.success && res.handle) {
           setBlueskyHandle(res.handle);
-          setShowBlueskyModal(false);
           onProfileUpdated?.();
         } else if (res.error) {
-          setBlueskyModalError(res.error);
+          setError(res.error);
         }
       }
     } catch (err) {
@@ -166,32 +187,19 @@ const EditProfile: React.FC<EditProfileProps> = ({ onBack, onProfileUpdated }) =
       }
 
       setProfileData(profile);
-      setFormData({
-        name: profile.name || '',
-        pronouns: profile.pronouns || '',
-        gender: profile.gender || '',
-        bio: profile.bio || '',
-        beliefs: profile.beliefs || '',
-        field: profile.field || '',
-      });
+      setName(profile.name || '');
+      setBio(profile.bio || '');
+      setSelectedPronouns(parseList(profile.pronouns));
+      setSelectedGender(parseList(profile.gender));
+      setSelectedOrientation(parseList(profile.sexual_orientation));
+      setOrientationConsent(!!profile.sexual_orientation_consent);
+      setOrientationConsentConfirmed(!!profile.sexual_orientation_consent);
+      setSelectedBelief(profile.beliefs || '');
+      setSelectedField(profile.field || '');
+
       setProfilePicPreview(profile.profile_pic_url);
       setCoverPicPreview(profile.cover_pic_url);
       setBlueskyHandle(profile.bluesky_handle || '');
-
-      // Load soulcode
-      const { data: soulcodeData } = await supabase
-        .from('soulcodes')
-        .select('*')
-        .eq('user_id', user.id)
-        .single();
-
-      if (soulcodeData) {
-        setSoulcode({
-          core_drive: soulcodeData.core_drive,
-          value_spectrum: soulcodeData.value_spectrum,
-          social_vibe: soulcodeData.social_vibe
-        });
-      }
 
     } catch (error) {
       console.error('Error in loadProfile:', error);
@@ -201,27 +209,14 @@ const EditProfile: React.FC<EditProfileProps> = ({ onBack, onProfileUpdated }) =
     }
   };
 
-  const handleConnectBlueskyOAuth = async () => {
-    if (!blueskyInput.trim()) {
-      setBlueskyModalError('Please enter your Bluesky handle');
-      return;
-    }
+  const handleAuthorizeBlueskyOAuth = async () => {
     setIsConnectingBluesky(true);
-    setBlueskyModalError('');
+    setError('');
     try {
-      const cleanHandle = blueskyInput.trim().replace(/^@/, '');
-      const { authUrl } = await initiateBlueskyOAuth(cleanHandle);
-      
-      // On mobile devices, opening in the same window prevents popup blocker issues and tab isolation
-      const isMobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
-      if (isMobile) {
-        window.location.href = authUrl;
-      } else {
-        window.open(authUrl, '_blank', 'noopener,noreferrer');
-        setIsConnectingBluesky(false);
-      }
+      const { authUrl } = await initiateBlueskyOAuth();
+      window.location.href = authUrl;
     } catch (err: any) {
-      setBlueskyModalError(err.message || 'Failed to initiate Bluesky OAuth');
+      setError(err.message || 'Failed to initiate Bluesky OAuth');
       setIsConnectingBluesky(false);
     }
   };
@@ -279,7 +274,6 @@ const EditProfile: React.FC<EditProfileProps> = ({ onBack, onProfileUpdated }) =
       const fileName = `${userId}-${Date.now()}.${fileExt}`;
       const filePath = fileName;
 
-      // Upload to Cloudflare R2
       const publicUrl = await uploadToR2(bucket, filePath, file);
       return publicUrl;
     } catch (error) {
@@ -288,9 +282,40 @@ const EditProfile: React.FC<EditProfileProps> = ({ onBack, onProfileUpdated }) =
     }
   };
 
+  // Toggle helpers for multi-selects
+  const togglePronoun = (item: string) => {
+    setSelectedPronouns(prev => 
+      prev.includes(item) ? prev.filter(p => p !== item) : [...prev, item]
+    );
+  };
+
+  const toggleGender = (item: string) => {
+    setSelectedGender(prev => 
+      prev.includes(item) ? prev.filter(g => g !== item) : [...prev, item]
+    );
+  };
+
+  const toggleOrientation = (item: string) => {
+    setSelectedOrientation(prev => {
+      const updated = prev.includes(item) ? prev.filter(o => o !== item) : [...prev, item];
+      if (updated.length === 0) {
+        setOrientationConsent(false);
+        setOrientationConsentConfirmed(false);
+      }
+      return updated;
+    });
+  };
+
   const handleSave = async () => {
-    setIsSaving(true);
     setError('');
+
+    // Check GDPR consent for Sexual Orientation
+    if (selectedOrientation.length > 0 && !orientationConsent) {
+      setError('Please check the GDPR consent checkbox to save your sexual orientation on your profile, or deselect it.');
+      return;
+    }
+
+    setIsSaving(true);
 
     try {
       const { data: { user } } = await supabase.auth.getUser();
@@ -325,37 +350,23 @@ const EditProfile: React.FC<EditProfileProps> = ({ onBack, onProfileUpdated }) =
         }
       }
 
-      // Save soulcode if provided
-      if (showSoulcode && soulcode.core_drive && soulcode.value_spectrum && soulcode.social_vibe) {
-        const { error: soulcodeError } = await supabase
-          .from('soulcodes')
-          .upsert({
-            user_id: user.id,
-            core_drive: soulcode.core_drive,
-            value_spectrum: soulcode.value_spectrum,
-            social_vibe: soulcode.social_vibe,
-            updated_at: new Date().toISOString()
-          }, {
-            onConflict: 'user_id'
-          });
-
-        if (soulcodeError) {
-          console.error('Error saving soulcode:', soulcodeError);
-          setError('Failed to save soulcode. Please try again.');
-          return;
-        }
-      }
+      const pronounsStr = selectedPronouns.length > 0 ? selectedPronouns.join(', ') : null;
+      const genderStr = selectedGender.length > 0 ? selectedGender.join(', ') : null;
+      const orientationStr = selectedOrientation.length > 0 ? selectedOrientation.join(', ') : null;
+      const hasConsent = selectedOrientation.length > 0 ? orientationConsent : false;
 
       // Update profile in database
       const { error: updateError } = await supabase
         .from('profiles')
         .update({
-          name: formData.name.trim() || null,
-          pronouns: formData.pronouns || null,
-          gender: formData.gender || null,
-          bio: formData.bio.trim() || null,
-          beliefs: formData.beliefs || null,
-          field: formData.field || null,
+          name: name.trim() || null,
+          pronouns: pronounsStr,
+          gender: genderStr,
+          sexual_orientation: orientationStr,
+          sexual_orientation_consent: hasConsent,
+          bio: bio.trim() || null,
+          beliefs: selectedBelief || null,
+          field: selectedField || null,
           profile_pic_url: profilePicUrl,
           cover_pic_url: coverPicUrl,
           updated_at: new Date().toISOString(),
@@ -430,193 +441,382 @@ const EditProfile: React.FC<EditProfileProps> = ({ onBack, onProfileUpdated }) =
       <div className="max-w-2xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
         {/* Error Message */}
         {error && (
-          <div className="mb-6 bg-red-500/10 border border-red-500/20 rounded-2xl p-4 backdrop-blur-sm">
-            <p className="text-red-400">{error}</p>
+          <div className="mb-6 bg-red-500/10 border border-red-500/20 rounded-2xl p-4 backdrop-blur-sm flex items-start space-x-3">
+            <AlertCircle className="w-5 h-5 text-red-400 flex-shrink-0 mt-0.5" />
+            <p className="text-red-400 text-sm">{error}</p>
           </div>
         )}
 
-        <div className="space-y-8">
-          {/* Cover Photo */}
-          <div className="space-y-4">
-            <h3 className="text-lg font-semibold text-slate-200">Cover Photo</h3>
-            <div className="relative">
-              <div className="h-48 bg-gradient-to-r from-slate-700 via-slate-600 to-slate-700 rounded-3xl overflow-hidden relative">
-                {coverPicPreview ? (
-                  <img
-                    src={wrapMediaUrl(coverPicPreview)}
-                    alt="Cover"
-                    className="w-full h-full object-cover"
-                  />
-                ) : (
-                  <div className="absolute inset-0 flex items-center justify-center">
-                    <Image className="w-16 h-16 text-slate-300/30" />
+        <div className="space-y-10">
+          
+          {/* =========================================
+              SECTION 1: Basic Information
+             ========================================= */}
+          <div className="bg-slate-800/40 border border-slate-700/60 rounded-3xl p-5 sm:p-6 space-y-6 backdrop-blur-sm">
+            <div className="border-b border-slate-700/50 pb-3">
+              <h2 className="text-lg font-bold text-slate-100 flex items-center gap-2">
+                <User className="w-5 h-5 text-slate-400" />
+                <span>Basic Information</span>
+              </h2>
+              <p className="text-xs text-slate-400 mt-0.5">Manage your public avatar, name, and bio.</p>
+            </div>
+
+            {/* Photos Container */}
+            <div className="space-y-6">
+              {/* Cover Photo */}
+              <div className="space-y-2">
+                <label className="block text-slate-300 text-sm font-medium">Cover Photo</label>
+                <div className="relative">
+                  <div className="h-40 bg-gradient-to-r from-slate-700 via-slate-600 to-slate-700 rounded-2xl overflow-hidden relative">
+                    {coverPicPreview ? (
+                      <img
+                        src={wrapMediaUrl(coverPicPreview)}
+                        alt="Cover"
+                        className="w-full h-full object-cover"
+                      />
+                    ) : (
+                      <div className="absolute inset-0 flex items-center justify-center">
+                        <Image className="w-12 h-12 text-slate-300/30" />
+                      </div>
+                    )}
+                    
+                    <button
+                      type="button"
+                      onClick={() => coverPicRef.current?.click()}
+                      className="absolute top-3 right-3 p-2.5 bg-slate-900/60 backdrop-blur-sm rounded-xl hover:bg-slate-800 text-slate-300 hover:text-white transition-all shadow-md"
+                      title="Change Cover Photo"
+                    >
+                      <Camera className="w-4 h-4" />
+                    </button>
                   </div>
-                )}
-                
-                <button
-                  onClick={() => coverPicRef.current?.click()}
-                  className="absolute top-4 right-4 p-3 bg-slate-900/50 backdrop-blur-sm rounded-2xl hover:bg-slate-800/50 text-slate-300 hover:text-white transition-all duration-300"
-                >
-                  <Camera className="w-5 h-5" />
-                </button>
+                  
+                  <input
+                    ref={coverPicRef}
+                    type="file"
+                    accept="image/*"
+                    onChange={(e) => {
+                      const file = e.target.files?.[0];
+                      if (file) handleFileSelect('cover', file);
+                    }}
+                    className="hidden"
+                  />
+                </div>
               </div>
-              
+
+              {/* Profile Picture */}
+              <div className="flex items-center space-x-4">
+                <div className="relative">
+                  <div className="w-20 h-20 rounded-full bg-slate-800 border-2 border-slate-700 flex items-center justify-center overflow-hidden shadow-inner">
+                    {profilePicPreview ? (
+                      <img
+                        src={wrapMediaUrl(profilePicPreview)}
+                        alt="Profile"
+                        className="w-full h-full object-cover"
+                      />
+                    ) : (
+                      <User className="w-8 h-8 text-slate-400" />
+                    )}
+                  </div>
+                  
+                  <button
+                    type="button"
+                    onClick={() => profilePicRef.current?.click()}
+                    className="absolute -bottom-1 -right-1 w-7 h-7 bg-slate-700 hover:bg-slate-600 border border-slate-600 rounded-full flex items-center justify-center shadow-md transition-all"
+                    title="Change Profile Picture"
+                  >
+                    <Camera className="w-3.5 h-3.5 text-white" />
+                  </button>
+                  
+                  <input
+                    ref={profilePicRef}
+                    type="file"
+                    accept="image/*"
+                    onChange={(e) => {
+                      const file = e.target.files?.[0];
+                      if (file) handleFileSelect('profile', file);
+                    }}
+                    className="hidden"
+                  />
+                </div>
+                <div>
+                  <h4 className="text-slate-200 font-medium text-sm">Profile Picture</h4>
+                  <p className="text-xs text-slate-400 mt-0.5">Recommended 400x400px (Max 5MB)</p>
+                </div>
+              </div>
+            </div>
+
+            {/* Name */}
+            <div className="space-y-2">
+              <label className="block text-slate-300 font-medium text-sm">Name</label>
               <input
-                ref={coverPicRef}
-                type="file"
-                accept="image/*"
-                onChange={(e) => {
-                  const file = e.target.files?.[0];
-                  if (file) handleFileSelect('cover', file);
-                }}
-                className="hidden"
+                type="text"
+                value={name}
+                onChange={(e) => setName(e.target.value)}
+                placeholder="Your display name"
+                className="w-full p-3.5 bg-slate-900/60 border border-slate-700 rounded-2xl text-slate-200 placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-slate-500 focus:border-transparent text-sm transition-all"
+                maxLength={50}
               />
             </div>
-          </div>
 
-          {/* Profile Picture */}
-          <div className="space-y-4">
-            <h3 className="text-lg font-semibold text-slate-200">Profile Picture</h3>
-            <div className="flex items-center space-x-4">
-              <div className="relative">
-                <div className="w-24 h-24 rounded-full bg-slate-800/50 border-2 border-slate-700 flex items-center justify-center overflow-hidden">
-                  {profilePicPreview ? (
-                    <img
-                      src={wrapMediaUrl(profilePicPreview)}
-                      alt="Profile"
-                      className="w-full h-full object-cover"
-                    />
-                  ) : (
-                    <User className="w-10 h-10 text-slate-400" />
-                  )}
-                </div>
-                
-                <button
-                  onClick={() => profilePicRef.current?.click()}
-                  className="absolute -bottom-1 -right-1 w-8 h-8 bg-gradient-to-r from-slate-600 to-slate-700 rounded-full flex items-center justify-center shadow-lg hover:from-slate-500 hover:to-slate-600 transition-all duration-300"
-                >
-                  <Camera className="w-4 h-4 text-white" />
-                </button>
-                
-                <input
-                  ref={profilePicRef}
-                  type="file"
-                  accept="image/*"
-                  onChange={(e) => {
-                    const file = e.target.files?.[0];
-                    if (file) handleFileSelect('profile', file);
-                  }}
-                  className="hidden"
-                />
-              </div>
+            {/* Bio */}
+            <div className="space-y-2">
+              <label className="block text-slate-300 font-medium text-sm">Bio</label>
+              <textarea
+                value={bio}
+                onChange={(e) => setBio(e.target.value)}
+                placeholder="Tell us about yourself..."
+                rows={3}
+                className="w-full p-3.5 bg-slate-900/60 border border-slate-700 rounded-2xl text-slate-200 placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-slate-500 focus:border-transparent text-sm transition-all resize-none"
+                maxLength={160}
+              />
+              <p className="text-slate-500 text-xs text-right">
+                {bio.length}/160
+              </p>
             </div>
           </div>
 
-          {/* Name */}
-          <div className="space-y-2">
-            <label className="block text-slate-300 font-medium">Name</label>
-            <input
-              type="text"
-              value={formData.name}
-              onChange={(e) => setFormData(prev => ({ ...prev, name: e.target.value }))}
-              placeholder="Your display name"
-              className="w-full p-4 bg-slate-800/50 border border-slate-700 rounded-2xl text-slate-200 placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-slate-500 focus:border-transparent transition-all duration-300 backdrop-blur-sm"
-              maxLength={50}
-            />
+          {/* =========================================
+              SECTION 2: Identity & Expression
+             ========================================= */}
+          <div className="bg-slate-800/40 border border-slate-700/60 rounded-3xl p-5 sm:p-6 space-y-6 backdrop-blur-sm">
+            <div className="border-b border-slate-700/50 pb-3">
+              <h2 className="text-lg font-bold text-slate-100 flex items-center gap-2">
+                <Sparkles className="w-5 h-5 text-indigo-400" />
+                <span>Identity & Expression</span>
+              </h2>
+              <p className="text-xs text-slate-400 mt-0.5">Select multiple options that reflect your identity.</p>
+            </div>
+
+            {/* 1. Pronouns (Multi-select) */}
+            <div className="space-y-2.5">
+              <div className="flex items-center justify-between">
+                <label className="block text-slate-300 font-medium text-sm">
+                  Pronouns <span className="text-xs text-slate-400 font-normal">(Multi-select)</span>
+                </label>
+                {selectedPronouns.length > 0 && (
+                  <button
+                    type="button"
+                    onClick={() => setSelectedPronouns([])}
+                    className="text-xs text-slate-400 hover:text-rose-400 transition-colors"
+                  >
+                    Clear ({selectedPronouns.length})
+                  </button>
+                )}
+              </div>
+              <div className="flex flex-wrap gap-2">
+                {pronounsList.map((pronoun) => {
+                  const isSelected = selectedPronouns.includes(pronoun);
+                  return (
+                    <button
+                      key={pronoun}
+                      type="button"
+                      onClick={() => togglePronoun(pronoun)}
+                      className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-medium transition-all duration-200 border ${
+                        isSelected
+                          ? 'bg-slate-700 text-white border-slate-500 shadow-sm'
+                          : 'bg-slate-900/50 text-slate-300 border-slate-700/70 hover:bg-slate-800 hover:text-white'
+                      }`}
+                    >
+                      {isSelected && <Check className="w-3.5 h-3.5 text-slate-200" />}
+                      <span>{pronoun}</span>
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+
+            {/* 2. Gender (Multi-select) */}
+            <div className="space-y-2.5 pt-2 border-t border-slate-700/40">
+              <div className="flex items-center justify-between">
+                <label className="block text-slate-300 font-medium text-sm">
+                  Gender <span className="text-xs text-slate-400 font-normal">(Multi-select)</span>
+                </label>
+                {selectedGender.length > 0 && (
+                  <button
+                    type="button"
+                    onClick={() => setSelectedGender([])}
+                    className="text-xs text-slate-400 hover:text-rose-400 transition-colors"
+                  >
+                    Clear ({selectedGender.length})
+                  </button>
+                )}
+              </div>
+              <div className="flex flex-wrap gap-2">
+                {genderList.map((gender) => {
+                  const isSelected = selectedGender.includes(gender);
+                  const iconConfig = getGenderIconConfig(gender);
+                  const IconComp = iconConfig.icon;
+                  return (
+                    <button
+                      key={gender}
+                      type="button"
+                      onClick={() => toggleGender(gender)}
+                      className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-medium transition-all duration-200 border ${
+                        isSelected
+                          ? 'bg-slate-700 text-white border-slate-500 shadow-sm'
+                          : 'bg-slate-900/50 text-slate-300 border-slate-700/70 hover:bg-slate-800 hover:text-white'
+                      }`}
+                    >
+                      <IconComp className={`w-3.5 h-3.5 ${isSelected ? 'text-white' : iconConfig.colorClass}`} />
+                      <span>{gender}</span>
+                      {isSelected && <Check className="w-3 h-3 text-slate-200 ml-0.5" />}
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+
+            {/* 3. Sexual Orientation (Multi-select) */}
+            <div className="space-y-3 pt-2 border-t border-slate-700/40">
+              <div className="flex items-center justify-between">
+                <label className="block text-slate-300 font-medium text-sm">
+                  Sexual Orientation <span className="text-xs text-slate-400 font-normal">(Multi-select)</span>
+                </label>
+                {selectedOrientation.length > 0 && (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setSelectedOrientation([]);
+                      setOrientationConsent(false);
+                      setOrientationConsentConfirmed(false);
+                    }}
+                    className="text-xs text-slate-400 hover:text-rose-400 transition-colors"
+                  >
+                    Clear ({selectedOrientation.length})
+                  </button>
+                )}
+              </div>
+
+              <div className="flex flex-wrap gap-2">
+                {sexualOrientationList.map((orientation) => {
+                  const isSelected = selectedOrientation.includes(orientation);
+                  const iconConfig = getOrientationIconConfig(orientation);
+                  const IconComp = iconConfig.icon;
+                  return (
+                    <button
+                      key={orientation}
+                      type="button"
+                      onClick={() => toggleOrientation(orientation)}
+                      className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-medium transition-all duration-200 border ${
+                        isSelected
+                          ? 'bg-rose-950/60 text-rose-200 border-rose-500/60 shadow-sm'
+                          : 'bg-slate-900/50 text-slate-300 border-slate-700/70 hover:bg-slate-800 hover:text-white'
+                      }`}
+                    >
+                      <IconComp className={`w-3.5 h-3.5 ${isSelected ? 'text-rose-300' : iconConfig.colorClass}`} />
+                      <span>{orientation}</span>
+                      {isSelected && <Check className="w-3 h-3 text-rose-300 ml-0.5" />}
+                    </button>
+                  );
+                })}
+              </div>
+
+              {/* GDPR Sensitive Personal Data & Consent Box */}
+              {selectedOrientation.length > 0 && (
+                <div className="mt-4 p-4 rounded-2xl bg-slate-900/80 border border-rose-500/30 space-y-3 animate-fade-in">
+                  <div className="flex items-start space-x-2.5">
+                    <Shield className="w-5 h-5 text-rose-400 flex-shrink-0 mt-0.5" />
+                    <div className="space-y-1">
+                      <h4 className="text-xs font-semibold text-rose-200 uppercase tracking-wider">
+                        GDPR Sensitive Personal Data Notice
+                      </h4>
+                      <p className="text-xs text-slate-300 leading-relaxed">
+                        Sexual orientation is considered sensitive personal data under GDPR. By choosing to add this information, you explicitly consent to FRACT processing it solely for displaying it on your profile. This information will never be used for advertising, profiling, recommendations, or shared with third parties for their own purposes. You can remove it at any time.
+                      </p>
+                    </div>
+                  </div>
+
+                  <div className="pt-2 border-t border-slate-800 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                    <label className="flex items-start sm:items-center space-x-2.5 cursor-pointer select-none">
+                      <input
+                        type="checkbox"
+                        checked={orientationConsent}
+                        onChange={(e) => {
+                          setOrientationConsent(e.target.checked);
+                          if (!e.target.checked) {
+                            setOrientationConsentConfirmed(false);
+                          }
+                        }}
+                        className="w-4 h-4 rounded border-slate-600 bg-slate-800 text-rose-600 focus:ring-rose-500 focus:ring-offset-slate-900 mt-0.5 sm:mt-0 cursor-pointer"
+                      />
+                      <span className="text-xs font-medium text-slate-200 leading-snug">
+                        I explicitly consent to FRACT processing my sexual orientation for display on my profile.
+                      </span>
+                    </label>
+
+                    {orientationConsent && !orientationConsentConfirmed && (
+                      <button
+                        type="button"
+                        onClick={() => setOrientationConsentConfirmed(true)}
+                        className="px-3.5 py-1.5 bg-rose-600 hover:bg-rose-500 text-white text-xs font-medium rounded-xl transition-all shadow whitespace-nowrap self-end sm:self-auto"
+                      >
+                        Continue
+                      </button>
+                    )}
+                  </div>
+                </div>
+              )}
+            </div>
+
           </div>
 
-          {/* Pronouns */}
-          <div className="space-y-2">
-            <label className="block text-slate-300 font-medium">Pronouns</label>
-            <select
-              value={formData.pronouns}
-              onChange={(e) => setFormData(prev => ({ ...prev, pronouns: e.target.value }))}
-              className="w-full p-4 bg-slate-800/50 border border-slate-700 rounded-2xl text-slate-200 focus:outline-none focus:ring-2 focus:ring-slate-500 focus:border-transparent transition-all duration-300 backdrop-blur-sm"
-            >
-              <option value="">Select your pronouns</option>
-              {pronounsList.map((pronoun) => (
-                <option key={pronoun} value={pronoun} className="bg-slate-800">
-                  {pronoun}
-                </option>
-              ))}
-            </select>
+          {/* =========================================
+              SECTION 3: Interests & Perspectives
+             ========================================= */}
+          <div className="bg-slate-800/40 border border-slate-700/60 rounded-3xl p-5 sm:p-6 space-y-6 backdrop-blur-sm">
+            <div className="border-b border-slate-700/50 pb-3">
+              <h2 className="text-lg font-bold text-slate-100 flex items-center gap-2">
+                <Sparkles className="w-5 h-5 text-cyan-400" />
+                <span>Interests & Perspectives</span>
+              </h2>
+              <p className="text-xs text-slate-400 mt-0.5">Select your primary alignment and domain of interest.</p>
+            </div>
+
+            {/* Field of Interest */}
+            <div className="space-y-2">
+              <label className="block text-slate-300 font-medium text-sm">Field of Interest</label>
+              <select
+                value={selectedField}
+                onChange={(e) => setSelectedField(e.target.value)}
+                className="w-full p-3.5 bg-slate-900/60 border border-slate-700 rounded-2xl text-slate-200 focus:outline-none focus:ring-2 focus:ring-cyan-500 focus:border-transparent text-sm transition-all"
+              >
+                <option value="">Select your field</option>
+                {fields.map((field) => (
+                  <option key={field} value={field} className="bg-slate-800">
+                    {field}
+                  </option>
+                ))}
+              </select>
+            </div>
+
+            {/* Beliefs */}
+            <div className="space-y-2">
+              <label className="block text-slate-300 font-medium text-sm">Beliefs</label>
+              <select
+                value={selectedBelief}
+                onChange={(e) => setSelectedBelief(e.target.value)}
+                className="w-full p-3.5 bg-slate-900/60 border border-slate-700 rounded-2xl text-slate-200 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent text-sm transition-all"
+              >
+                <option value="">Select your beliefs</option>
+                {beliefs.map((belief) => (
+                  <option key={belief} value={belief} className="bg-slate-800">
+                    {belief}
+                  </option>
+                ))}
+              </select>
+            </div>
           </div>
 
-          {/* Gender */}
-          <div className="space-y-2">
-            <label className="block text-slate-300 font-medium">Gender</label>
-            <select
-              value={formData.gender}
-              onChange={(e) => setFormData(prev => ({ ...prev, gender: e.target.value }))}
-              className="w-full p-4 bg-slate-800/50 border border-slate-700 rounded-2xl text-slate-200 focus:outline-none focus:ring-2 focus:ring-slate-500 focus:border-transparent transition-all duration-300 backdrop-blur-sm"
-            >
-              <option value="">Select your gender</option>
-              {genderList.map((gender) => (
-                <option key={gender} value={gender} className="bg-slate-800">
-                  {gender}
-                </option>
-              ))}
-            </select>
-          </div>
-
-          {/* Bio */}
-          <div className="space-y-2">
-            <label className="block text-slate-300 font-medium">Bio</label>
-            <textarea
-              value={formData.bio}
-              onChange={(e) => setFormData(prev => ({ ...prev, bio: e.target.value }))}
-              placeholder="Tell us about yourself..."
-              rows={3}
-              className="w-full p-4 bg-slate-800/50 border border-slate-700 rounded-2xl text-slate-200 placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-slate-500 focus:border-transparent transition-all duration-300 backdrop-blur-sm resize-none"
-              maxLength={160}
-            />
-            <p className="text-slate-500 text-sm text-right">
-              {formData.bio.length}/160
-            </p>
-          </div>
-
-          {/* Beliefs */}
-          <div className="space-y-2">
-            <label className="block text-slate-300 font-medium">Beliefs</label>
-            <select
-              value={formData.beliefs}
-              onChange={(e) => setFormData(prev => ({ ...prev, beliefs: e.target.value }))}
-              className="w-full p-4 bg-slate-800/50 border border-slate-700 rounded-2xl text-slate-200 focus:outline-none focus:ring-2 focus:ring-slate-500 focus:border-transparent transition-all duration-300 backdrop-blur-sm"
-            >
-              <option value="">Select your beliefs</option>
-              {beliefs.map((belief) => (
-                <option key={belief} value={belief} className="bg-slate-800">
-                  {belief}
-                </option>
-              ))}
-            </select>
-          </div>
-
-          {/* Field */}
-          <div className="space-y-2">
-            <label className="block text-slate-300 font-medium">Field of Interest</label>
-            <select
-              value={formData.field}
-              onChange={(e) => setFormData(prev => ({ ...prev, field: e.target.value }))}
-              className="w-full p-4 bg-slate-800/50 border border-slate-700 rounded-2xl text-slate-200 focus:outline-none focus:ring-2 focus:ring-slate-500 focus:border-transparent transition-all duration-300 backdrop-blur-sm"
-            >
-              <option value="">Select your field</option>
-              {fields.map((field) => (
-                <option key={field} value={field} className="bg-slate-800">
-                  {field}
-                </option>
-              ))}
-            </select>
-          </div>
-
-          {/* Bluesky Connection */}
+          {/* =========================================
+              SECTION 4: Bluesky Integration
+             ========================================= */}
           <div className="space-y-4">
             <h3 className="text-lg font-semibold text-slate-200 flex items-center space-x-2">
               <BlueskyIcon className="w-5 h-5 text-sky-400 fill-current" />
               <span>Bluesky Integration</span>
             </h3>
             
-            <div className="p-5 bg-slate-800/50 border border-slate-700 rounded-2xl backdrop-blur-sm">
+            <div className="p-5 bg-slate-800/40 border border-slate-700/60 rounded-3xl backdrop-blur-sm">
               {blueskyHandle ? (
                 <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
                   <div className="flex items-center space-x-3">
@@ -654,202 +854,25 @@ const EditProfile: React.FC<EditProfileProps> = ({ onBack, onProfileUpdated }) =
                   <div>
                     <h4 className="text-slate-200 font-medium text-base">Link your Bluesky account</h4>
                     <p className="text-slate-400 text-sm mt-1">
-                      Connect your Bluesky profile to verify your identity and display your handle on your profile.
+                      Authorize with Bluesky to display your verified Bluesky handle on your FRACT profile.
                     </p>
                   </div>
                   <button
                     type="button"
-                    onClick={() => {
-                      setBlueskyModalError('');
-                      setShowBlueskyModal(true);
-                    }}
-                    className="flex items-center justify-center space-x-2 px-5 py-2.5 bg-[#0285FF] hover:bg-[#0070d8] text-white font-medium rounded-xl transition-all duration-300 shadow-md hover:shadow-sky-500/20 whitespace-nowrap transform hover:scale-105"
+                    onClick={handleAuthorizeBlueskyOAuth}
+                    disabled={isConnectingBluesky}
+                    className="flex items-center justify-center space-x-2 px-5 py-2.5 bg-[#0285FF] hover:bg-[#0070d8] text-white font-medium rounded-xl transition-all duration-300 shadow-md hover:shadow-sky-500/20 whitespace-nowrap transform hover:scale-105 disabled:opacity-50 disabled:transform-none"
                   >
                     <BlueskyIcon className="w-4 h-4 fill-current" />
-                    <span>Connect to Bluesky</span>
+                    <span>{isConnectingBluesky ? 'Redirecting to Bluesky...' : 'Authorize with Bluesky (OAuth)'}</span>
                   </button>
                 </div>
               )}
             </div>
           </div>
 
-          {/* Soulcode Section */}
-          <div className="space-y-4">
-            <div className="flex items-center justify-between">
-              <h3 className="text-lg font-semibold text-slate-200">Create Soulcode</h3>
-              <button
-                onClick={() => setShowSoulcode(!showSoulcode)}
-                className="flex items-center space-x-2 px-4 py-2 bg-gradient-to-r from-purple-600 to-pink-600 hover:from-purple-500 hover:to-pink-500 text-white font-medium rounded-xl transition-all duration-300 transform hover:scale-105"
-              >
-                <Heart className="w-4 h-4" />
-                <span>{showSoulcode ? 'Hide Soulcode' : 'Create Soulcode'}</span>
-              </button>
-            </div>
-            
-            {showSoulcode && (
-              <div className="bg-gradient-to-br from-purple-500/10 to-pink-500/10 border border-purple-500/20 rounded-3xl p-6 space-y-6">
-                <div className="text-center mb-6">
-                  <div className="flex items-center justify-center space-x-2 mb-2">
-                    <Sparkles className="w-6 h-6 text-purple-400" />
-                    <h4 className="text-xl font-bold text-slate-100">Find Your Soulmate</h4>
-                    <Sparkles className="w-6 h-6 text-pink-400" />
-                  </div>
-                  <p className="text-slate-300 text-sm">
-                    Create your unique soulcode to find your perfect match
-                  </p>
-                </div>
-
-                {/* Core Drive */}
-                <div className="space-y-3">
-                  <label className="block text-purple-300 font-semibold">Core Drive</label>
-                  <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
-                    {soulcodeOptions.core_drive.map((option) => (
-                      <button
-                        key={option}
-                        onClick={() => setSoulcode(prev => ({ ...prev, core_drive: option }))}
-                        className={`p-3 rounded-xl font-medium transition-all duration-300 capitalize ${
-                          soulcode.core_drive === option
-                            ? 'bg-purple-600 text-white shadow-lg transform scale-105'
-                            : 'bg-slate-700/50 text-slate-300 hover:bg-purple-600/30 hover:text-purple-200'
-                        }`}
-                      >
-                        {option}
-                      </button>
-                    ))}
-                  </div>
-                </div>
-
-                {/* Value Spectrum */}
-                <div className="space-y-3">
-                  <label className="block text-pink-300 font-semibold">Value Spectrum</label>
-                  <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
-                    {soulcodeOptions.value_spectrum.map((option) => (
-                      <button
-                        key={option}
-                        onClick={() => setSoulcode(prev => ({ ...prev, value_spectrum: option }))}
-                        className={`p-3 rounded-xl font-medium transition-all duration-300 capitalize ${
-                          soulcode.value_spectrum === option
-                            ? 'bg-pink-600 text-white shadow-lg transform scale-105'
-                            : 'bg-slate-700/50 text-slate-300 hover:bg-pink-600/30 hover:text-pink-200'
-                        }`}
-                      >
-                        {option}
-                      </button>
-                    ))}
-                  </div>
-                </div>
-
-                {/* Social Vibe */}
-                <div className="space-y-3">
-                  <label className="block text-blue-300 font-semibold">Social Vibe</label>
-                  <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
-                    {soulcodeOptions.social_vibe.map((option) => (
-                      <button
-                        key={option}
-                        onClick={() => setSoulcode(prev => ({ ...prev, social_vibe: option }))}
-                        className={`p-3 rounded-xl font-medium transition-all duration-300 capitalize ${
-                          soulcode.social_vibe === option
-                            ? 'bg-blue-600 text-white shadow-lg transform scale-105'
-                            : 'bg-slate-700/50 text-slate-300 hover:bg-blue-600/30 hover:text-blue-200'
-                        }`}
-                      >
-                        {option}
-                      </button>
-                    ))}
-                  </div>
-                </div>
-
-                {/* Soulcode Preview */}
-                {soulcode.core_drive && soulcode.value_spectrum && soulcode.social_vibe && (
-                  <div className="bg-slate-800/50 rounded-2xl p-4 border border-slate-600">
-                    <h5 className="text-slate-200 font-semibold mb-2">Your Soulcode:</h5>
-                    <div className="flex flex-wrap gap-2">
-                      <span className="px-3 py-1 bg-purple-600/20 text-purple-300 rounded-full text-sm font-medium">
-                        {soulcode.core_drive}
-                      </span>
-                      <span className="px-3 py-1 bg-pink-600/20 text-pink-300 rounded-full text-sm font-medium">
-                        {soulcode.value_spectrum}
-                      </span>
-                      <span className="px-3 py-1 bg-blue-600/20 text-blue-300 rounded-full text-sm font-medium">
-                        {soulcode.social_vibe}
-                      </span>
-                    </div>
-                  </div>
-                )}
-              </div>
-            )}
-          </div>
         </div>
       </div>
-
-      {/* Bluesky Connect Modal */}
-      {showBlueskyModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/70 backdrop-blur-sm">
-          <div className="bg-slate-800 border border-slate-700 rounded-3xl p-6 max-w-md w-full shadow-2xl space-y-5 animate-fade-in">
-            <div className="flex items-center justify-between">
-              <div className="flex items-center space-x-3">
-                <div className="w-10 h-10 rounded-2xl bg-sky-500/10 border border-sky-500/20 flex items-center justify-center">
-                  <BlueskyIcon className="w-5 h-5 text-sky-400 fill-current" />
-                </div>
-                <div>
-                  <h3 className="text-lg font-bold text-slate-100">Connect to Bluesky</h3>
-                  <p className="text-xs text-slate-400">OAuth & AT Protocol Integration</p>
-                </div>
-              </div>
-              <button
-                type="button"
-                onClick={() => setShowBlueskyModal(false)}
-                className="p-2 text-slate-400 hover:text-slate-200 hover:bg-slate-700/50 rounded-xl transition-colors"
-              >
-                <X className="w-5 h-5" />
-              </button>
-            </div>
-
-            {blueskyModalError && (
-              <div className="p-3 bg-red-500/10 border border-red-500/20 rounded-xl text-red-400 text-sm">
-                {blueskyModalError}
-              </div>
-            )}
-
-            <div className="space-y-2">
-              <label className="block text-slate-300 text-sm font-medium">
-                Bluesky Handle
-              </label>
-              <div className="relative">
-                <span className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400 font-medium">@</span>
-                <input
-                  type="text"
-                  value={blueskyInput}
-                  onChange={(e) => setBlueskyInput(e.target.value)}
-                  placeholder="alice.bsky.social"
-                  className="w-full pl-8 pr-4 py-3 bg-slate-900/60 border border-slate-700 rounded-xl text-slate-100 placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-sky-500 focus:border-transparent text-sm"
-                  onKeyDown={(e) => {
-                    if (e.key === 'Enter') {
-                      e.preventDefault();
-                      handleConnectBlueskyOAuth();
-                    }
-                  }}
-                />
-              </div>
-              <p className="text-xs text-slate-500">
-                Enter your handle (e.g. username.bsky.social or custom domain)
-              </p>
-            </div>
-
-            <div className="space-y-2 pt-2">
-              <button
-                type="button"
-                onClick={handleConnectBlueskyOAuth}
-                disabled={isConnectingBluesky}
-                className="w-full flex items-center justify-center space-x-2 py-3 px-4 bg-[#0285FF] hover:bg-[#0070d8] text-white font-medium rounded-xl transition-all duration-300 disabled:opacity-50 shadow-md hover:shadow-sky-500/20"
-              >
-                <BlueskyIcon className="w-4 h-4 fill-current" />
-                <span>{isConnectingBluesky ? 'Opening Bluesky...' : 'Authorize with Bluesky (OAuth)'}</span>
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
     </div>
   );
 };

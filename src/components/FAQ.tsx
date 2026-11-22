@@ -46,7 +46,7 @@ const FAQ: React.FC<FAQProps> = ({ onBack }) => {
         },
         {
           question: 'How do I set up my profile?',
-          answer: 'Tap your profile icon in the bottom bar, then tap "Edit Profile." You can set your name, bio, beliefs, field of interest, profile picture, and cover photo. You can also create your Soulcode here -- a three-part personality fingerprint used for soulmate matching.'
+          answer: 'Tap your profile icon in the bottom bar, then tap "Edit Profile." You can set your name, bio, pronouns, gender, sexual orientation, beliefs, field of interest, profile picture, and cover photo.'
         }
       ]
     },
@@ -57,15 +57,11 @@ const FAQ: React.FC<FAQProps> = ({ onBack }) => {
       items: [
         {
           question: 'What are the different feed tabs?',
-          answer: 'Your feed has three sub-tabs. "Discover" shows public posts from all users. "Following" shows posts only from people you follow. "Echoes" surfaces posts that are similar to your own content, helping you find like-minded voices.'
+          answer: 'Your feed has three tabs: "Discover" shows public posts from all users, "Following" shows posts only from people you follow, and "Echoes" surfaces posts that are semantically similar to your own content.'
         },
         {
           question: 'What is the Echoes tab?',
           answer: 'Echoes finds posts that are semantically similar to your own writing using AI-powered content matching. Posts are grouped into three tiers: Weak Echo (loosely similar in theme), Strong Echo (clearly aligned in meaning), and Total Resonance (highly similar in both content and structure). You can filter by tier to explore different levels of alignment.'
-        },
-        {
-          question: 'What is the Soulmates tab?',
-          answer: 'The Soulmates tab shows users matched to you based on your Soulcode. To use it, you first need to create your Soulcode in Edit Profile by choosing your Core Drive, Value Spectrum, and Social Vibe. The system then finds people with compatible personality profiles.'
         },
         {
           question: 'Why don\'t I see certain posts in Discover?',
@@ -149,10 +145,6 @@ const FAQ: React.FC<FAQProps> = ({ onBack }) => {
           answer: 'By default, your Respected, Rejected, and Observed tabs may be visible on your profile. You can control this in Settings under the Privacy tab -- toggle each one on or off independently.'
         },
         {
-          question: 'What is a Soulcode?',
-          answer: 'A Soulcode is a three-part personality fingerprint you create in Edit Profile. It consists of your Core Drive (what motivates you), Value Spectrum (how you see the world), and Social Vibe (how you engage). Options include things like Freedom, Order, Rationalist, Humanist, Calm, Bold, and more.'
-        },
-        {
           question: 'What are Beliefs and Field of Interest?',
           answer: 'These are profile attributes you can set in Edit Profile. Beliefs include options like Analyst, Humanist, Progressive, Conservative, Realist, and others. Field of Interest covers topics like Politics, Science/Tech, Philosophy, Business, Health, and more. They help others understand your perspective.'
         },
@@ -199,16 +191,12 @@ const FAQ: React.FC<FAQProps> = ({ onBack }) => {
     },
     {
       id: 'search',
-      title: 'Search & Soulmates',
+      title: 'Search & Discovery',
       icon: <Search className="w-5 h-5" />,
       items: [
         {
           question: 'How do I search for people or posts?',
           answer: 'Tap the Search icon in the bottom navigation. You can switch between two tabs: Profiles (to find users by name or username) and Posts (to find content by keywords). Results update as you type.'
-        },
-        {
-          question: 'How does "Find Your Soulmate" work?',
-          answer: 'On the Search page, below the search bar, you\'ll see a "Find Your Soulmate" section if you\'ve created a Soulcode. Tapping it triggers the matching system, which searches for users with compatible Soulcodes and navigates you to a matched profile.'
         }
       ]
     },

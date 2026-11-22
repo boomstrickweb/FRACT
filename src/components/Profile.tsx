@@ -2,7 +2,7 @@ import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { ArrowLeft, User, Calendar, Settings as SettingsIcon, CreditCard as Edit3, Users, UserPlus, UserMinus, MoreHorizontal, Flag, VolumeX, Ban, Plus, Heart, X, Eye, Newspaper, ShieldAlert, TrendingUp, FileEdit, Link2, AlertTriangle, Scale, Bookmark, BookOpen, MessageSquare, Loader2 } from 'lucide-react';
 import { supabase, getCDNUrl, wrapMediaUrl } from '../lib/supabase';
-import { getFieldIconConfig, getBeliefIconConfig, getGenderIconConfig } from '../lib/categoryIcons';
+import { getFieldIconConfig, getBeliefIconConfig, getGenderIconConfig, getOrientationIconConfig } from '../lib/categoryIcons';
 import BlueskyIcon from './BlueskyIcon';
 import { disconnectBlueskyProfile } from '../services/blueskyService';
 import PostCard from './PostCard';
@@ -26,6 +26,8 @@ interface ProfileData {
   username?: string;
   pronouns?: string;
   gender?: string;
+  sexual_orientation?: string;
+  sexual_orientation_consent?: boolean;
   bio?: string;
   profile_pic_url?: string;
   cover_pic_url?: string;
@@ -1774,14 +1776,18 @@ const Profile: React.FC<ProfileProps> = ({ userId: propsUserId, onBack, onNaviga
               )}
             </div>
             
-            <div className="flex items-center space-x-2 mb-3">
+            <div className="flex flex-wrap items-center space-x-2 gap-y-1 mb-3">
               {profile.username && (
                 <p className="text-slate-400">@{profile.username}</p>
               )}
               {profile.pronouns && (
-                <span className="text-xs px-2.5 py-0.5 rounded-full bg-slate-800/80 border border-slate-700/80 text-slate-300 font-medium">
-                  {profile.pronouns}
-                </span>
+                <div className="flex flex-wrap items-center gap-1.5">
+                  {profile.pronouns.split(',').map(s => s.trim()).filter(Boolean).map(p => (
+                    <span key={p} className="text-xs px-2.5 py-0.5 rounded-full bg-slate-800/80 border border-slate-700/80 text-slate-300 font-medium">
+                      {p}
+                    </span>
+                  ))}
+                </div>
               )}
             </div>
             
@@ -1791,16 +1797,27 @@ const Profile: React.FC<ProfileProps> = ({ userId: propsUserId, onBack, onNaviga
 
             {/* Additional Info */}
             <div className="flex flex-wrap items-center gap-x-4 gap-y-2 text-slate-400 text-sm mb-4">
-              {profile.gender && (() => {
-                const config = getGenderIconConfig(profile.gender);
+              {profile.gender && profile.gender.split(',').map(s => s.trim()).filter(Boolean).map(g => {
+                const config = getGenderIconConfig(g);
                 const GenderIcon = config.icon;
                 return (
-                  <div className="flex items-center space-x-1.5 bg-slate-800/40 px-2.5 py-1 rounded-lg border border-slate-700/50">
+                  <div key={g} className="flex items-center space-x-1.5 bg-slate-800/40 px-2.5 py-1 rounded-lg border border-slate-700/50">
                     <GenderIcon className={`w-3.5 h-3.5 ${config.colorClass} flex-shrink-0`} />
-                    <span className="text-slate-300 text-xs sm:text-sm">{profile.gender}</span>
+                    <span className="text-slate-300 text-xs sm:text-sm">{g}</span>
                   </div>
                 );
-              })()}
+              })}
+
+              {profile.sexual_orientation && profile.sexual_orientation.split(',').map(s => s.trim()).filter(Boolean).map(so => {
+                const config = getOrientationIconConfig(so);
+                const OrientationIcon = config.icon;
+                return (
+                  <div key={so} className="flex items-center space-x-1.5 bg-slate-800/40 px-2.5 py-1 rounded-lg border border-slate-700/50">
+                    <OrientationIcon className={`w-3.5 h-3.5 ${config.colorClass} flex-shrink-0`} />
+                    <span className="text-slate-300 text-xs sm:text-sm">{so}</span>
+                  </div>
+                );
+              })}
 
               {profile.beliefs && (() => {
                 const config = getBeliefIconConfig(profile.beliefs);
